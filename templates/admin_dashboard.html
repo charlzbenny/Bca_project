@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active"><i class="fas fa-home"></i> System Status</a>
+                <a href="#" class="nav-link"><i class="fas fa-user-cog"></i> Users</a>
+                <a href="#" class="nav-link"><i class="fas fa-server"></i> Server Management</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-title">System Administration</div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ session['username'] }}</span>
+                    <div class="avatar" style="background-color: #374151;">A</div>
+                </div>
+            </header>
+
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Total Users</div>
+                    <div class="stat-value">542</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">System Load</div>
+                    <div class="stat-value" style="color: var(--text-main);">24%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Live AI Services</div>
+                    <div class="stat-value" style="color: var(--success);"><i class="fas fa-circle"
+                            style="font-size: 1rem; vertical-align: middle;"></i> Online</div>
+                </div>
+            </div>
+
+            <div class="stat-card" style="margin-top: 1rem;">
+                <h3 style="margin-bottom: 1rem;">Administrative Actions</h3>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn-primary" style="width: auto;"><i class="fas fa-user-plus"></i> Add New
+                        User</button>
+                    <button class="btn-primary" style="width: auto; background-color: #374151;"><i
+                            class="fas fa-database"></i> Backup DB</button>
+                    <button class="btn-primary" style="width: auto; background-color: var(--danger);"><i
+                            class="fas fa-power-off"></i> Restart Services</button>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

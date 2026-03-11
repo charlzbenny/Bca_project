@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cheating Alerts - Teacher Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .alert-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .alert-image {
+            width: 250px;
+            height: 150px;
+            background: #F3F4F6;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #E5E7EB;
+        }
+        .alert-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .alert-info {
+            flex: 1;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-pending { background: #FEF3C7; color: #92400E; }
+        .status-confirmed { background: #FEE2E2; color: #991B1B; }
+        .status-false { background: #D1FAE5; color: #065F46; }
+        
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('teacher_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="{{ url_for('teacher_alerts') }}" class="nav-link active"><i class="fas fa-exclamation-triangle"></i> Alerts</a>
+                <a href="{{ url_for('create_exam') }}" class="nav-link"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-title">Cheating Alerts</div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ session['name'] }}</span>
+                    <div class="avatar" style="background-color: #8B5CF6;">T</div>
+                </div>
+            </header>
+
+            <div style="padding: 1rem 0;">
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    <div class="alert" style="background-color: #D1FAE5; color: #065F46; border: 1px solid #34D399; margin-bottom: 1.5rem; padding: 1rem; border-radius: 4px;">
+                    {% for message in messages %}
+                        <i class="fas fa-check-circle"></i> {{ message }}
+                    {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <h3 style="margin-bottom: 1.5rem; color: var(--text-main);">Review Alerts</h3>
+                
+                {% if alerts %}
+                    {% for alert in alerts %}
+                        <div class="alert-card">
+                            <div class="alert-image">
+                                {% if alert.screenshot_path %}
+                                    <img src="{{ url_for('static', filename=alert.screenshot_path) }}" alt="Alert Evidence">
+                                {% else %}
+                                    <div style="color: #9CA3AF;"><i class="fas fa-image fa-2x"></i><br>No Img</div>
+                                {% endif %}
+                            </div>
+                            <div class="alert-info">
+                                <h4 style="margin-bottom: 0.5rem; font-size: 1.125rem;">{{ alert.alert_type }}</h4>
+                                <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                    <strong>Student:</strong> {{ alert.student_name }}
+                                </p>
+                                <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                    <strong>Time:</strong> {{ alert.timestamp }}
+                                </p>
+                                <p style="margin-bottom: 1rem; font-size: 0.875rem;">
+                                    <strong>Status:</strong> 
+                                    <span class="status-badge 
+                                        {% if alert.status == 'Pending' %}status-pending
+                                        {% elif alert.status == 'Confirmed Cheating' %}status-confirmed
+                                        {% else %}status-false{% endif %}">
+                                        {{ alert.status }}
+                                    </span>
+                                </p>
+                                
+                                <form action="{{ url_for('update_alert', alert_id=alert.id) }}" method="POST" class="action-buttons">
+                                    <button type="submit" name="status" value="Confirmed Cheating" class="btn-primary" style="background: var(--danger); font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                        <i class="fas fa-check" style="margin-right: 4px;"></i> Confirm Cheating
+                                    </button>
+                                    <button type="submit" name="status" value="False Alert" class="btn-primary" style="background: var(--bg-alt); color: var(--text-main); font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                        <i class="fas fa-times" style="margin-right: 4px;"></i> False Alert
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding: 2rem; border: 1px dashed var(--border); border-radius: 8px; text-align: center; color: var(--text-muted);">
+                        No alerts found in the system.
+                    </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

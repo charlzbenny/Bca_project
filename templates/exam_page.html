@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examination in Progress</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="exam-header">
+        <div style="font-size: 1.25rem; font-weight: 600;"><i class="fas fa-file-alt"></i> {{ exam.exam_name }}</div>
+        <div><i class="fas fa-clipboard-list" style="color: var(--primary);"></i> <span id="qCountText">Question 1 of {{ questions|length }}</span></div>
+        <div class="timer" id="timer"><i class="far fa-clock"></i> <span id="timeDisplay">{{ exam.duration }}:00</span></div>
+    </div>
+
+    <!-- Alert banner injected by script when looking away -->
+    <div id="alert-banner" style="display: none; background: #FEF2F2; color: #991B1B; padding: 1rem; text-align: center; border-bottom: 1px solid #FCA5A5; font-weight: 500;">
+        <i class="fas fa-exclamation-triangle"></i> Suspicious activity detected! Please look at the screen.
+    </div>
+
+    <div class="exam-container">
+        <main class="question-container">
+            <!-- Store exam duration in data attribute for js -->
+            <form id="examForm" method="POST" action="{{ url_for('submit_exam', exam_id=exam.id) }}" data-duration="{{ exam.duration }}" data-exam-id="{{ exam.id }}">
+                
+                {% for q in questions %}
+                <div class="question-page" id="q-{{ loop.index }}" {% if loop.index != 1 %}style="display: none;"{% endif %}>
+                    <h2 class="question-title">{{ loop.index }}. {{ q.question_text }}</h2>
+                    <div class="options-grid">
+                        <label class="option-label">
+                            <input type="radio" name="q{{ q.id }}" value="{{ q.option1 }}">
+                            <span class="option-text">{{ q.option1 }}</span>
+                        </label>
+                        <label class="option-label">
+                            <input type="radio" name="q{{ q.id }}" value="{{ q.option2 }}">
+                            <span class="option-text">{{ q.option2 }}</span>
+                        </label>
+                        <label class="option-label">
+                            <input type="radio" name="q{{ q.id }}" value="{{ q.option3 }}">
+                            <span class="option-text">{{ q.option3 }}</span>
+                        </label>
+                        <label class="option-label">
+                            <input type="radio" name="q{{ q.id }}" value="{{ q.option4 }}">
+                            <span class="option-text">{{ q.option4 }}</span>
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div class="exam-footer">
+                    <button type="button" class="btn-primary" id="prevBtn" style="background: var(--bg-alt); color: var(--text-main); display: none;"><i class="fas fa-arrow-left"></i> Previous</button>
+                    <!-- Spacer -->
+                    <div style="flex: 1;"></div>
+                    <button type="button" class="btn-primary" id="nextBtn" {% if questions|length <= 1 %}style="display: none;"{% endif %}>Next <i class="fas fa-arrow-right"></i></button>
+                    <button type="submit" class="btn-primary" id="submitBtn" {% if questions|length > 1 %}style="display: none; background: var(--success);"{% else %}style="background: var(--success);"{% endif %}><i class="fas fa-check"></i> Submit Exam</button>
+                </div>
+            </form>
+        </main>
+        
+        <aside class="video-container">
+            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fas fa-shield-alt" style="color: var(--primary);"></i> Live Proctoring</span>
+                <span style="font-size: 0.75rem; background: #D1FAE5; color: #065F46; padding: 2px 6px; border-radius: 4px;">ACTIVE</span>
+            </h3>
+            <div class="video-overlay" id="videoOverlay">
+                <i class="fas fa-camera text-muted" style="font-size: 2rem;"></i>
+                <p class="text-muted" style="margin-top: 1rem;">Initializing camera...</p>
+            </div>
+            <!-- Live WebCam Feed -->
+            <video id="webcam" autoplay playsinline></video>
+            
+            <p class="text-muted" style="margin-top: 1rem; font-size: 0.875rem;">
+                <i class="fas fa-info-circle"></i> Your camera, microphone, and browser focus are being monitored.
+            </p>
+        </aside>
+    </div>
+
+    <!-- The proctor warning will be injected here via script.js -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>

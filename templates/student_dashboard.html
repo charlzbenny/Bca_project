@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="#" class="nav-link"><i class="fas fa-book"></i> My Courses</a>
+                <a href="#" class="nav-link"><i class="fas fa-chart-line"></i> Results</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-title">Student Overview</div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ student.name }}</span>
+                    <div class="avatar">{{ student.name[0] }}</div>
+                </div>
+            </header>
+
+            <div class="stat-card" style="margin-bottom: 2rem; display: flex; align-items: center; gap: 2rem;">
+                <div
+                    style="width: 100px; height: 100px; border-radius: 50%; background-color: var(--secondary); display: flex; justify-content: center; align-items: center; overflow: hidden; border: 3px solid var(--primary);">
+                    {% if student.photo %}
+                    <i class="fas fa-user" style="font-size: 3rem; color: var(--text-muted);"></i>
+                    {% else %}
+                    <i class="fas fa-user" style="font-size: 3rem; color: var(--text-muted);"></i>
+                    {% endif %}
+                </div>
+                <div style="flex: 1;">
+                    <h2 style="margin-bottom: 0.5rem; font-size: 1.5rem;">{{ student.name }}</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; color: var(--text-muted);">
+                        <div><strong>Register No:</strong> {{ student.register_number }}</div>
+                        <div><strong>Course:</strong> {{ student.course }}</div>
+                        <div><strong>Email:</strong> {{ student.email }}</div>
+                        <div><strong>Role:</strong> <span style="text-transform: capitalize;">{{ student.role }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Available Exams</div>
+                    <div class="stat-value">{{ exams|length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Completed Exams</div>
+                    <div class="stat-value">{{ results|length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Average Score</div>
+                    <div class="stat-value">
+                        {% if results %}
+                            {% set total_marks = [] %}
+                            {% for r in results %}
+                                {% set _ = total_marks.append(r.marks) %}
+                            {% endfor %}
+                            {{ (total_marks | sum / total_marks | length) | round(1) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card" style="margin-top: 1rem;">
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    <div class="alert" style="background-color: #D1FAE5; color: #065F46; border: 1px solid #34D399; margin-bottom: 1.5rem;">
+                    {% for message in messages %}
+                      {{ message }}
+                    {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+                
+                <h3 style="margin-bottom: 1rem;">Available Exams</h3>
+                
+                {% if exams %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+                    {% for exam in exams %}
+                        <!-- We can disable the Start Exam button if they already have a matching result -->
+                        {% set ns = namespace(completed=false) %}
+                        {% for r in results %}
+                            {% if r.exam_name == exam.exam_name %}
+                                {% set ns.completed = true %}
+                            {% endif %}
+                        {% endfor %}
+
+                        <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <h4 style="margin-bottom: 0.5rem; color: var(--text-main);">{{ exam.exam_name }}</h4>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
+                                <i class="far fa-clock"></i> {{ exam.duration }} mins • <i class="fas fa-list-ol"></i> {{ exam.question_count }} questions
+                            </p>
+                            
+                            {% if ns.completed %}
+                                <button class="btn-primary" disabled style="width: 100%; opacity: 0.5; cursor: not-allowed;"><i class="fas fa-check-circle"></i> Completed</button>
+                            {% else %}
+                                <a href="{{ url_for('exam_page', exam_id=exam.id) }}" class="btn-primary" style="text-decoration: none; width: 100%; display: block; text-align: center;"><i class="fas fa-play"></i> Start Exam</a>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% else %}
+                    <div style="padding: 2rem; border: 1px dashed var(--border); border-radius: 8px; text-align: center; color: var(--text-muted);">
+                        No exams available yet.
+                    </div>
+                {% endif %}
+        </main>
+    </div>
+</body>
+
+</html>
