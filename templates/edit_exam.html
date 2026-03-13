@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Exam - AI Proctoring System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('teacher_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="{{ url_for('exam_hub') }}" class="nav-link active"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <a href="#" class="nav-link"><i class="fas fa-users"></i> Monitor Students</a>
+                <a href="{{ url_for('teacher_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Cheating Alerts</a>
+                <a href="#" class="nav-link"><i class="fas fa-chart-bar"></i> Results</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <div class="header-title">Edit Exam</div>
+                    <p class="text-muted" style="margin-top: 0.25rem;">Update the exam details and settings.</p>
+                </div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ session['name'] }}</span>
+                    <div class="avatar" style="background-color: #8B5CF6;">{{ session['name'][0] }}</div>
+                </div>
+            </header>
+            
+            <div style="margin-bottom: 1rem;">
+                <a href="{{ url_for('manage_exams') }}" style="color: var(--primary); text-decoration: none;">
+                    <i class="fas fa-arrow-left"></i> Back to Exams
+                </a>
+            </div>
+
+            <form method="POST" action="{{ url_for('edit_exam', exam_id=exam.id) }}" style="max-width: 800px;">
+                <div class="stat-card" style="margin-bottom: 2rem;">
+                    <h3 style="margin-bottom: 1.5rem; color: var(--primary);">Exam Details</h3>
+                    
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+                        <div class="form-group mb-0">
+                            <label class="form-label" for="exam_name">Exam Title</label>
+                            <input class="form-input" type="text" id="exam_name" name="exam_name" value="{{ exam.exam_name }}" required>
+                        </div>
+                        
+                        <div class="form-group mb-0">
+                            <label class="form-label" for="duration">Duration (Minutes)</label>
+                            <input class="form-input" type="number" id="duration" name="duration" min="5" value="{{ exam.duration }}" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Update Exam</button>
+                    <a href="{{ url_for('manage_exams') }}" class="btn-primary" style="background-color: var(--bg-alt); color: var(--text-main); text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Cancel</a>
+                </div>
+            </form>
+        </main>
+    </div>
+</body>
+</html>

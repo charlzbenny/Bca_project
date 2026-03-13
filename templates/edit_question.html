@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Question - AI Proctoring System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .question-card {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('teacher_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="{{ url_for('exam_hub') }}" class="nav-link"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <a href="#" class="nav-link"><i class="fas fa-users"></i> Monitor Students</a>
+                <a href="{{ url_for('teacher_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Cheating Alerts</a>
+                <a href="#" class="nav-link"><i class="fas fa-chart-bar"></i> Results</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <div class="header-title">Edit Question</div>
+                    <p class="text-muted" style="margin-top: 0.25rem;">Modify the details below and save your changes.</p>
+                </div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ session['name'] }}</span>
+                    <div class="avatar" style="background-color: #8B5CF6;">{{ session['name'][0] }}</div>
+                </div>
+            </header>
+            
+            <div style="margin-bottom: 1rem;">
+                <a href="{{ url_for('manage_questions', exam_id=question.exam_id) }}" style="color: var(--primary); text-decoration: none;">
+                    <i class="fas fa-arrow-left"></i> Back to Questions
+                </a>
+            </div>
+
+            <form method="POST" action="{{ url_for('edit_question', question_id=question.id) }}" style="max-width: 800px;">
+                <div class="question-card">
+                    <h4 style="margin-bottom: 1rem;">Question Details</h4>
+                    <div class="form-group">
+                        <label class="form-label">Question Text</label>
+                        <input class="form-input" type="text" name="question_text" value="{{ question.question_text }}" required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Option A</label>
+                            <input class="form-input" type="text" name="option1" value="{{ question.option1 }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Option B</label>
+                            <input class="form-input" type="text" name="option2" value="{{ question.option2 }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Option C</label>
+                            <input class="form-input" type="text" name="option3" value="{{ question.option3 }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Option D</label>
+                            <input class="form-input" type="text" name="option4" value="{{ question.option4 }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 0.5rem;">
+                        <label class="form-label" style="color: var(--success);">Correct Answer (Exact Match Required)</label>
+                        <input class="form-input" type="text" name="correct_answer" value="{{ question.correct_answer }}" required>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Update Question</button>
+                    <a href="{{ url_for('manage_questions', exam_id=question.exam_id) }}" class="btn-primary" style="background-color: var(--bg-alt); color: var(--text-main); text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Cancel</a>
+                </div>
+            </form>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Hub - AI Proctoring System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hub-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            max-width: 800px;
+            margin-top: 2rem;
+        }
+        .hub-card {
+            background: #fff;
+            padding: 2.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: var(--text-main);
+            display: block;
+        }
+        .hub-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            border-color: var(--primary);
+        }
+        .hub-card i {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        .hub-card h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+        }
+        .hub-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('teacher_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="{{ url_for('exam_hub') }}" class="nav-link active"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <a href="#" class="nav-link"><i class="fas fa-users"></i> Monitor Students</a>
+                <a href="{{ url_for('teacher_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Cheating Alerts</a>
+                <a href="#" class="nav-link"><i class="fas fa-chart-bar"></i> Results</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <div class="header-title">Exam Management Hub</div>
+                    <p class="text-muted" style="margin-top: 0.25rem;">Choose an action below to manage your exams.</p>
+                </div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ session['name'] }}</span>
+                    <div class="avatar" style="background-color: #8B5CF6;">{{ session['name'][0] }}</div>
+                </div>
+            </header>
+            
+            <div class="hub-grid">
+                <a href="{{ url_for('create_exam') }}" class="hub-card">
+                    <i class="fas fa-file-signature"></i>
+                    <h3>Create New Exam</h3>
+                    <p>Setup a new exam with scheduling, duration, and add custom questions.</p>
+                </a>
+                
+                <a href="{{ url_for('manage_exams') }}" class="hub-card">
+                    <i class="fas fa-tasks"></i>
+                    <h3>Manage Existing Exams</h3>
+                    <p>View, edit, or delete existing exams and manage their respective questions.</p>
+                </a>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

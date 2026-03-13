@@ -35,8 +35,10 @@
             </div>
             <nav class="sidebar-nav">
                 <a href="{{ url_for('teacher_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
-                <a href="#" class="nav-link active"><i class="fas fa-plus-circle"></i> Create Exam</a>
-                <a href="#" class="nav-link"><i class="fas fa-users"></i> Students</a>
+                <a href="{{ url_for('exam_hub') }}" class="nav-link active"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <a href="#" class="nav-link"><i class="fas fa-users"></i> Monitor Students</a>
+                <a href="{{ url_for('teacher_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Cheating Alerts</a>
+                <a href="#" class="nav-link"><i class="fas fa-chart-bar"></i> Results</a>
                 <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </nav>
         </aside>
@@ -56,102 +58,26 @@
             <form method="POST" action="{{ url_for('create_exam') }}" id="examForm" style="max-width: 800px;">
                 <div class="stat-card" style="margin-bottom: 2rem;">
                     <h3 style="margin-bottom: 1.5rem; color: var(--primary);">Exam Settings</h3>
+                    
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
                         <div class="form-group mb-0">
                             <label class="form-label" for="exam_name">Exam Title</label>
                             <input class="form-input" type="text" id="exam_name" name="exam_name" required placeholder="Ex: Midterm Computer Science">
                         </div>
+                        
                         <div class="form-group mb-0">
                             <label class="form-label" for="duration">Duration (Minutes)</label>
                             <input class="form-input" type="number" id="duration" name="duration" min="5" value="60" required>
                         </div>
                     </div>
                 </div>
-
-                <div id="questions-container">
-                    <!-- Default First Question -->
-                    <div class="question-card">
-                        <h4 style="margin-bottom: 1rem;">Question 1</h4>
-                        <div class="form-group">
-                            <label class="form-label">Question Text</label>
-                            <input class="form-input" type="text" name="q1_text" required placeholder="Enter the question...">
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div class="form-group">
-                                <label class="form-label">Option 1</label>
-                                <input class="form-input" type="text" name="q1_o1" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Option 2</label>
-                                <input class="form-input" type="text" name="q1_o2" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Option 3</label>
-                                <input class="form-input" type="text" name="q1_o3" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Option 4</label>
-                                <input class="form-input" type="text" name="q1_o4" required>
-                            </div>
-                        </div>
-                        <div class="form-group" style="margin-top: 0.5rem;">
-                            <label class="form-label" style="color: var(--success);">Correct Answer (Exact Match Required)</label>
-                            <input class="form-input" type="text" name="q1_correct" required placeholder="Paste the exact text of the correct option here">
-                        </div>
-                    </div>
-                </div>
                 
                 <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                    <button type="button" class="btn-primary" id="addQuestionBtn" style="background-color: var(--secondary); color: var(--text-main); border: 1px dashed var(--border);"><i class="fas fa-plus"></i> Add Another Question</button>
-                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Save Exam & Publish</button>
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Create Exam</button>
+                    <a href="{{ url_for('exam_hub') }}" class="btn-primary" style="background-color: var(--bg-alt); color: var(--text-main); text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Cancel</a>
                 </div>
             </form>
         </main>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const container = document.getElementById('questions-container');
-            const addBtn = document.getElementById('addQuestionBtn');
-            let qCount = 1;
-
-            addBtn.addEventListener('click', () => {
-                qCount++;
-                const card = document.createElement('div');
-                card.className = 'question-card';
-                card.innerHTML = `
-                    <button type="button" class="remove-btn" onclick="this.parentElement.remove()"><i class="fas fa-trash"></i></button>
-                    <h4 style="margin-bottom: 1rem;">Question ${qCount}</h4>
-                    <div class="form-group">
-                        <label class="form-label">Question Text</label>
-                        <input class="form-input" type="text" name="q${qCount}_text" required placeholder="Enter the question...">
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label class="form-label">Option 1</label>
-                            <input class="form-input" type="text" name="q${qCount}_o1" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Option 2</label>
-                            <input class="form-input" type="text" name="q${qCount}_o2" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Option 3</label>
-                            <input class="form-input" type="text" name="q${qCount}_o3" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Option 4</label>
-                            <input class="form-input" type="text" name="q${qCount}_o4" required>
-                        </div>
-                    </div>
-                    <div class="form-group" style="margin-top: 0.5rem;">
-                        <label class="form-label" style="color: var(--success);">Correct Answer (Exact Match Required)</label>
-                        <input class="form-input" type="text" name="q${qCount}_correct" required placeholder="Paste the exact text of the correct option here">
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        });
-    </script>
 </body>
 </html>
