@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Exams - Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> System Status</a>
+                <a href="{{ url_for('admin_monitor_exams') }}" class="nav-link active"><i class="fas fa-desktop"></i> Monitor Exams</a>
+                <a href="{{ url_for('admin_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Cheating Alerts</a>
+                <a href="#" class="nav-link"><i class="fas fa-user-cog"></i> Users</a>
+                <a href="#" class="nav-link"><i class="fas fa-server"></i> Server Management</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <div class="header-title">Monitor Ongoing Exams</div>
+                    <p class="text-muted" style="margin-top: 0.25rem;">View and monitor all active exam sessions</p>
+                </div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ session['name'] }}</span>
+                    <div class="avatar" style="background-color: #374151;">A</div>
+                </div>
+            </header>
+
+            <div class="card" style="margin-top: 1.5rem;">
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Exam ID</th>
+                                <th>Exam Title</th>
+                                <th>Teacher Name</th>
+                                <th>Alerts</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for exam in exams %}
+                            <tr>
+                                <td>#{{ exam.id }}</td>
+                                <td><span style="font-weight: 500; color: var(--text-main);">{{ exam.exam_name }}</span></td>
+                                <td>{{ exam.teacher_name }}</td>
+                                <td>
+                                    {% if exam.alert_count > 0 %}
+                                    <span style="color: var(--danger); font-weight: bold;"><i class="fas fa-exclamation-circle"></i> {{ exam.alert_count }}</span>
+                                    {% else %}
+                                    <span class="text-muted">0</span>
+                                    {% endif %}
+                                </td>
+                                <td><span class="status-badge" style="background-color: {{ 'rgba(16, 185, 129, 0.1)' if exam.alert_count == 0 else 'rgba(239, 68, 68, 0.1)' }}; color: {{ 'var(--success)' if exam.alert_count == 0 else 'var(--danger)' }};">Active</span></td>
+                                <td>
+                                    <a href="{{ url_for('admin_exam_monitor', exam_id=exam.id) }}" class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.875rem; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;"><i class="fas fa-eye" style="margin-right: 0.5rem;"></i> Monitor</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                                    No exams found to monitor.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

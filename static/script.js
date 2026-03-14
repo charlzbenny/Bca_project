@@ -85,21 +85,68 @@ function initProctoring() {
     const form = document.getElementById('examForm');
     const examId = form ? form.getAttribute('data-exam-id') : null;
     let tabSwitchCount = 0;
-    let visibilityTimeout = null;
+    // Audio Context for Microphone Level Monitoring and Recording
+    let audioContext;
+    let analyser;
+    let microphone;
+    let javascriptNode;
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecordingAudio = false;
     
-    // Warn when tab is switched or minimized
+    // Unified function to send alert payload including base64 audio
+    function sendAlertData(alertType, value) {
+        let payload = { exam_id: examId };
+        
+        if (alertType === 'tab_switch') payload.tab_switch = true;
+        if (alertType === 'audio_level') payload.audio_level = value;
+        if (alertType === 'image') payload.image = value;
+        
+        // If we have an active MediaRecorder, grab whatever chunks we have to send alongside
+        if (mediaRecorder && mediaRecorder.state !== 'inactive' && audioChunks.length > 0) {
+            // Take the last few chunks (giving us recent context) and clear
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = function() {
+                payload.audio_data = reader.result;
+                // Dispatch the fetch now that we have base64 audio
+                dispatchUpload(payload);
+            };
+            
+            // Clear chunks so the rolling window resets
+            audioChunks = [];
+        } else {
+            // Just send without audio
+            dispatchUpload(payload);
+        }
+    }
+    
+    function dispatchUpload(payload) {
+        fetch('/upload_frame', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'alert_recorded' && payload.image) {
+                // Only show visual warning banner for visual flags (prevent spam)
+                showWarning("Notice: " + data.type);
+            }
+        })
+        .catch(e => console.error(e));
+    }
+    
+    // Override the previous visibility listener to use sendAlertData
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
             visibilityTimeout = setTimeout(() => {
                 tabSwitchCount++;
                 showWarning(`⚠ Tab switching detected. Please stay on the exam page. (${tabSwitchCount}/3 allowed)`);
                 
-                // Send cheating alert backend
-                fetch('/upload_frame', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tab_switch: true, exam_id: examId })
-                }).catch(e => console.error(e));
+                sendAlertData('tab_switch', true);
                 
                 if (tabSwitchCount >= 3) {
                     alert("Exam terminated due to multiple tab switches.");
@@ -115,21 +162,6 @@ function initProctoring() {
         }
     });
 
-    // Real camera feed setup mapping to the aside view
-    const video = document.getElementById('webcam');
-    const overlay = document.getElementById('videoOverlay');
-    if (!video) return;
-    
-    // Canvas for capturing frames
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // Audio Context for Microphone Level Monitoring
-    let audioContext;
-    let analyser;
-    let microphone;
-    let javascriptNode;
-    
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
             // Video display logic
@@ -137,7 +169,7 @@ function initProctoring() {
             video.style.display = 'block';
             if (overlay) overlay.style.display = 'none';
             
-            // Audio setup logic
+            // Audio Level Monitoring Logic
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioContext.createAnalyser();
             microphone = audioContext.createMediaStreamSource(stream);
@@ -149,6 +181,27 @@ function initProctoring() {
             microphone.connect(analyser);
             analyser.connect(javascriptNode);
             javascriptNode.connect(audioContext.destination);
+            
+            // Audio Recording Logic
+            try {
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            } catch (e) {
+                console.warn('audio/webm formulation not supported on this browser, falling back to default.');
+                mediaRecorder = new MediaRecorder(stream);
+            }
+            
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) {
+                    audioChunks.push(e.data);
+                    // Keep buffer tight roughly last 10 seconds (assuming 1s chunks)
+                    if (audioChunks.length > 10) {
+                        audioChunks.shift(); 
+                    }
+                }
+            };
+            
+            // Start recording requesting data every 1 second
+            mediaRecorder.start(1000);
             
             let audioTriggerTimeout = null;
             
@@ -167,12 +220,7 @@ function initProctoring() {
                     if (!audioTriggerTimeout) {
                         // Debounce audio triggers so we don't spam the endpoint every millisecond
                         audioTriggerTimeout = setTimeout(() => {
-                            fetch('/upload_frame', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ audio_level: average, exam_id: examId })
-                            }).catch(e => console.error(e));
-                            
+                            sendAlertData('audio_level', average);
                             audioTriggerTimeout = null;
                         }, 5000); 
                     }
@@ -188,20 +236,7 @@ function initProctoring() {
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     const imageData = canvas.toDataURL('image/jpeg', 0.8);
                     
-                    fetch('/upload_frame', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ image: imageData, exam_id: examId })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'alert_recorded') {
-                            showWarning("Notice: " + data.type);
-                        }
-                    })
-                    .catch(error => console.error('Error uploading frame:', error));
+                    sendAlertData('image', imageData);
                 }, 5000); // Check visual every 5s
             };
         })

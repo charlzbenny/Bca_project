@@ -121,8 +121,20 @@ def init_db():
             alert_type TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             screenshot_path TEXT,
+            audio_path TEXT,
             status TEXT DEFAULT 'Pending',
             FOREIGN KEY (student_id) REFERENCES users (id)
+        )
+    ''')
+    
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
     
@@ -186,11 +198,205 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+import secrets
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email']
+        
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        
+        if user:
+            # Generate a reset token
+            token = secrets.token_urlsafe(32)
+            expiration = datetime.datetime.now() + datetime.timedelta(hours=1)
+            
+            conn.execute('''
+                INSERT INTO password_reset_tokens (user_id, token, expires_at)
+                VALUES (?, ?, ?)
+            ''', (user['id'], token, expiration))
+            conn.commit()
+            conn.close()
+            
+            # Since this is a local app without email setup, we will display the reset link in the flash message
+            reset_url = url_for('reset_password', token=token, _external=True)
+            flash(f'Reset link generated: <a href="{reset_url}" style="font-weight:bold;text-decoration:underline;">Click Here to Reset Password</a>', 'success')
+        else:
+            conn.close()
+            # Still flash a generic message to prevent email enumeration
+            flash('If an account exists for that email, a password reset link has been processed.', 'info')
+            
+    return render_template('forgot_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    conn = get_db_connection()
+    
+    # Verify token
+    token_record = conn.execute('''
+        SELECT * FROM password_reset_tokens 
+        WHERE token = ? AND expires_at > CURRENT_TIMESTAMP
+    ''', (token,)).fetchone()
+    
+    if not token_record:
+        conn.close()
+        flash('Invalid or expired password reset token.', 'error')
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        new_password = request.form['password']
+        hashed_password = generate_password_hash(new_password)
+        
+        # Update user password
+        conn.execute('UPDATE users SET password = ? WHERE id = ?', (hashed_password, token_record['user_id']))
+        # Delete used token
+        conn.execute('DELETE FROM password_reset_tokens WHERE id = ?', (token_record['id'],))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('Password successfully updated! You can now log in.', 'success')
+        return redirect(url_for('login'))
+        
+    conn.close()
+    return render_template('reset_password.html', token=token)
+
 @app.route('/admin/dashboard')
 def admin_dashboard():
     if session.get('role') != 'admin':
         return redirect(url_for('login'))
     return render_template('admin_dashboard.html')
+
+@app.route('/admin/monitor_exams')
+def admin_monitor_exams():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    # Fetch exams with teacher names and count of recent alerts
+    exams = conn.execute('''
+        SELECT e.*, u.name as teacher_name,
+               (SELECT COUNT(*) FROM cheating_alerts c WHERE c.exam_id = e.id) as alert_count
+        FROM exams e
+        JOIN users u ON e.created_by = u.id
+        ORDER BY e.created_date DESC
+    ''').fetchall()
+    conn.close()
+    
+    return render_template('admin_monitor_exams.html', exams=exams)
+
+@app.route('/admin/monitor/<int:exam_id>')
+def admin_exam_monitor(exam_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    exam = conn.execute('''
+        SELECT e.*, u.name as teacher_name 
+        FROM exams e 
+        JOIN users u ON e.created_by = u.id 
+        WHERE e.id = ?
+    ''', (exam_id,)).fetchone()
+    
+    if not exam:
+        conn.close()
+        flash('Exam not found.')
+        return redirect(url_for('admin_monitor_exams'))
+        
+    # Find all students who have either submitted answers OR triggered alerts for this exam
+    students_query = conn.execute('''
+        SELECT DISTINCT u.id, u.name, u.register_number
+        FROM users u
+        WHERE u.id IN (SELECT student_id FROM answers WHERE exam_id = ?)
+           OR u.id IN (SELECT student_id FROM cheating_alerts WHERE exam_id = ?)
+    ''', (exam_id, exam_id)).fetchall()
+    
+    students = []
+    for s in students_query:
+        student_data = dict(s)
+        
+        # Get alert count
+        alert_count_row = conn.execute('SELECT COUNT(*) as count FROM cheating_alerts WHERE exam_id = ? AND student_id = ?', (exam_id, s['id'])).fetchone()
+        student_data['alert_count'] = alert_count_row['count'] if alert_count_row else 0
+        
+        # Get latest screenshot
+        latest_screenshot_row = conn.execute('SELECT screenshot_path FROM cheating_alerts WHERE exam_id = ? AND student_id = ? AND screenshot_path IS NOT NULL ORDER BY timestamp DESC LIMIT 1', (exam_id, s['id'])).fetchone()
+        student_data['latest_screenshot'] = latest_screenshot_row['screenshot_path'] if latest_screenshot_row else None
+        
+        # Get recent alerts for feed (last 3)
+        recent_alerts = conn.execute('''
+            SELECT alert_type, strftime('%H:%M:%S', timestamp) as time 
+            FROM cheating_alerts 
+            WHERE exam_id = ? AND student_id = ? 
+            ORDER BY timestamp DESC LIMIT 3
+        ''', (exam_id, s['id'])).fetchall()
+        student_data['recent_alerts'] = [dict(a) for a in recent_alerts]
+        
+        students.append(student_data)
+        
+    conn.close()
+    
+    return render_template('admin_exam_monitor.html', exam=exam, students=students)
+
+@app.route('/admin/alerts')
+def admin_alerts():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    exam_id = request.args.get('exam_id')
+    student_id = request.args.get('student_id')
+    alert_type = request.args.get('alert_type')
+    status = request.args.get('status')
+    
+    query = '''
+        SELECT c.*, u.name as student_name, e.exam_name 
+        FROM cheating_alerts c
+        LEFT JOIN users u ON c.student_id = u.id
+        LEFT JOIN exams e ON c.exam_id = e.id
+        WHERE 1=1
+    '''
+    params = []
+    
+    if exam_id:
+        query += ' AND c.exam_id = ?'
+        params.append(exam_id)
+    if student_id:
+        query += ' AND c.student_id = ?'
+        params.append(student_id)
+    if alert_type:
+        query += ' AND c.alert_type LIKE ?'
+        params.append(f'{alert_type}%')
+    if status:
+        query += ' AND c.status = ?'
+        params.append(status)
+        
+    query += ' ORDER BY c.timestamp DESC'
+    
+    conn = get_db_connection()
+    alerts = conn.execute(query, params).fetchall()
+    
+    # Fetch lists for drop-downs
+    exams_list = conn.execute('SELECT id, exam_name FROM exams ORDER BY exam_name').fetchall()
+    conn.close()
+    
+    return render_template('admin_alerts.html', alerts=alerts, exams_list=exams_list)
+
+@app.route('/admin/update_alert/<int:alert_id>', methods=['POST'])
+def admin_update_alert(alert_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    status = request.form.get('status')
+    if status in ['Confirmed Cheating', 'False Alert', 'Pending']:
+        conn = get_db_connection()
+        conn.execute('UPDATE cheating_alerts SET status = ? WHERE id = ?', (status, alert_id))
+        conn.commit()
+        conn.close()
+        flash('Alert status updated successfully.')
+        
+    return redirect(request.referrer or url_for('admin_alerts'))
 
 @app.route('/teacher/dashboard')
 def teacher_dashboard():
@@ -222,6 +428,83 @@ def teacher_dashboard():
     conn.close()
     
     return render_template('teacher_dashboard.html', alerts=alerts, exams=exams, results=results)
+
+@app.route('/teacher/monitor_exams')
+def teacher_monitor_exams():
+    if session.get('role') != 'teacher':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    # Fetch exams created by this teacher
+    exams = conn.execute('''
+        SELECT e.*,
+               (SELECT COUNT(DISTINCT student_id) FROM answers WHERE exam_id = e.id) as student_count,
+               (SELECT COUNT(*) FROM cheating_alerts c WHERE c.exam_id = e.id) as alert_count
+        FROM exams e
+        WHERE e.created_by = ?
+        ORDER BY e.created_date DESC
+    ''', (session['user_id'],)).fetchall()
+    conn.close()
+    
+    return render_template('teacher_monitor_exams.html', exams=exams)
+
+@app.route('/teacher/monitor/<int:exam_id>')
+def teacher_exam_monitor(exam_id):
+    if session.get('role') != 'teacher':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    # Verify the exam belongs to the teacher
+    exam = conn.execute('SELECT * FROM exams WHERE id = ? AND created_by = ?', (exam_id, session['user_id'])).fetchone()
+    
+    if not exam:
+        conn.close()
+        flash('Exam not found or access denied.')
+        return redirect(url_for('teacher_monitor_exams'))
+        
+    # Find all students who have either submitted answers OR triggered alerts for this exam
+    students_query = conn.execute('''
+        SELECT DISTINCT u.id, u.name, u.register_number
+        FROM users u
+        WHERE u.id IN (SELECT student_id FROM answers WHERE exam_id = ?)
+           OR u.id IN (SELECT student_id FROM cheating_alerts WHERE exam_id = ?)
+    ''', (exam_id, exam_id)).fetchall()
+    
+    students = []
+    for s in students_query:
+        student_data = dict(s)
+        
+        # Get alert count
+        alert_count_row = conn.execute('SELECT COUNT(*) as count FROM cheating_alerts WHERE exam_id = ? AND student_id = ?', (exam_id, s['id'])).fetchone()
+        student_data['alert_count'] = alert_count_row['count'] if alert_count_row else 0
+        
+        # Get latest screenshot
+        latest_screenshot_row = conn.execute('SELECT screenshot_path FROM cheating_alerts WHERE exam_id = ? AND student_id = ? AND screenshot_path IS NOT NULL ORDER BY timestamp DESC LIMIT 1', (exam_id, s['id'])).fetchone()
+        student_data['latest_screenshot'] = latest_screenshot_row['screenshot_path'] if latest_screenshot_row else None
+        
+        # Get recent alerts for feed (last 3)
+        recent_alerts = conn.execute('''
+            SELECT alert_type, strftime('%H:%M:%S', timestamp) as time 
+            FROM cheating_alerts 
+            WHERE exam_id = ? AND student_id = ? 
+            ORDER BY timestamp DESC LIMIT 3
+        ''', (exam_id, s['id'])).fetchall()
+        student_data['recent_alerts'] = [dict(a) for a in recent_alerts]
+        
+        students.append(student_data)
+        
+    # Query all cheating alerts for the table at the bottom of the page
+    all_exam_alerts = conn.execute('''
+        SELECT c.*, u.name as student_name
+        FROM cheating_alerts c
+        LEFT JOIN users u ON c.student_id = u.id
+        WHERE c.exam_id = ?
+        ORDER BY c.timestamp DESC
+    ''', (exam_id,)).fetchall()
+        
+    conn.close()
+    
+    return render_template('teacher_exam_monitor.html', exam=exam, students=students, all_exam_alerts=all_exam_alerts)
 
 @app.route('/teacher/alerts')
 def teacher_alerts():
@@ -384,11 +667,25 @@ def add_question(exam_id):
         conn.commit()
         conn.close()
         
-        flash('Question added successfully!')
-        return redirect(url_for('manage_exams'))
+        return redirect(url_for('add_question_success', exam_id=exam_id))
         
     conn.close()
     return render_template('add_question.html', exam=exam)
+
+@app.route('/teacher/add_question_success/<int:exam_id>')
+def add_question_success(exam_id):
+    if session.get('role') != 'teacher':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    exam = conn.execute('SELECT * FROM exams WHERE id = ? AND created_by = ?', (exam_id, session['user_id'])).fetchone()
+    conn.close()
+    
+    if not exam:
+        flash('Exam not found or access denied.')
+        return redirect(url_for('manage_exams'))
+        
+    return render_template('add_question_success.html', exam=exam)
 
 @app.route('/teacher/manage_questions/<int:exam_id>')
 def manage_questions(exam_id):
@@ -743,19 +1040,23 @@ def upload_frame():
                 gaze_tracking_sessions[user_id] = 0
     
     if alert_type:
-        # Save image and record alert
-        cv2.imwrite(file_path, img)
-        conn = get_db_connection()
-        # Defaulting exam_id to Null if not passed via the payload for simplicity on global scope
-        exam_id = data.get('exam_id', None) 
+        # Save screenshot
+        filename = f"alert_{exam_id}_{student_id}_{int(time.time())}.jpg"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        cv2.imwrite(filepath, frame)
         
-        conn.execute('INSERT INTO cheating_alerts (exam_id, student_id, alert_type, screenshot_path) VALUES (?, ?, ?, ?)',
-                     (exam_id, user_id, alert_type, relative_path))
+        # Save to database
+        conn.execute('''
+            INSERT INTO cheating_alerts (exam_id, student_id, alert_type, screenshot_path, audio_path)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (exam_id, student_id, alert_type, f"uploads/{filename}", audio_path))
         conn.commit()
         conn.close()
+        
         return jsonify({'status': 'alert_recorded', 'type': alert_type})
         
-    return jsonify({'status': 'ok'})
+    conn.close()
+    return jsonify({'status': 'success', 'message': 'Frame analyzed, no alerts'})
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)

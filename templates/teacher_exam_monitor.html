@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Exam - {{ exam.exam_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .monitoring-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .student-monitor-card {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .student-monitor-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-alt);
+        }
+        .student-name {
+            font-weight: 500;
+            color: var(--text-main);
+        }
+        .feed-placeholder {
+            height: 200px;
+            background: #111827;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #9CA3AF;
+            position: relative;
+        }
+        .feed-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+        .status-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            background: rgba(0,0,0,0.6);
+            color: white;
+        }
+        .status-indicator.alert {
+            background: var(--danger);
+        }
+        .monitoring-details {
+            padding: 1rem;
+            flex-grow: 1;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+        .detail-label {
+            color: var(--text-muted);
+        }
+        .recent-alerts {
+            margin-top: 1rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+        .alert-item {
+            font-size: 0.8125rem;
+            color: var(--danger);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+        /* Thumbnail Modal styles */
+        .screenshot-thumbnail {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: transform 0.2s;
+        }
+        .screenshot-thumbnail:hover {
+            transform: scale(1.05);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            background: var(--danger);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            border: 2px solid white;
+        }
+        .modal-img {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('teacher_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="{{ url_for('exam_hub') }}" class="nav-link"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <a href="{{ url_for('teacher_monitor_exams') }}" class="nav-link active"><i class="fas fa-users"></i> Monitor Students</a>
+                <a href="{{ url_for('teacher_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Cheating Alerts</a>
+                <a href="#" class="nav-link"><i class="fas fa-chart-bar"></i> Results</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <div class="header-title">Monitoring: {{ exam.exam_name }}</div>
+                    <p class="text-muted" style="margin-top: 0.25rem;">Live AI Activity Feed</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <a href="{{ url_for('teacher_monitor_exams') }}" class="btn-primary" style="background-color: var(--bg-alt); color: var(--text-main); text-decoration: none; border: 1px solid var(--border);">Back to Monitor List</a>
+                    <div class="user-profile">
+                        <span style="font-weight: 500;">{{ session['name'] }}</span>
+                        <div class="avatar" style="background-color: #8B5CF6;">T</div>
+                    </div>
+                </div>
+            </header>
+            
+            <div class="stat-card" style="margin-top: 1.5rem;">
+                <h3 style="margin-bottom: 1rem;">Live AI Monitoring Grid</h3>
+                
+                <div class="monitoring-grid">
+                    {% for student in students %}
+                    <div class="student-monitor-card">
+                        <div class="student-monitor-header">
+                            <span class="student-name">{{ student.name }}</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ student.register_number }}</span>
+                        </div>
+                        
+                        <div class="feed-placeholder">
+                            {% if student.latest_screenshot %}
+                            <img src="{{ url_for('static', filename=student.latest_screenshot) }}" class="feed-img" alt="Student Feed" onclick="openModal(this.src)" style="cursor: zoom-in;">
+                            <div class="status-indicator alert"><i class="fas fa-exclamation-circle"></i> Flagged</div>
+                            {% else %}
+                            <i class="fas fa-video-slash" style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5;"></i>
+                            <span style="font-size: 0.875rem;">No alerts (Secure)</span>
+                            <div class="status-indicator" style="background: var(--success);"><i class="fas fa-shield-alt"></i> Safe</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="monitoring-details">
+                            <div class="detail-row">
+                                <span class="detail-label">AI Status</span>
+                                <span style="color: {{ 'var(--danger)' if student.alert_count > 0 else 'var(--success)' }}; font-weight: 500;">
+                                    {{ 'Suspicious' if student.alert_count > 0 else 'Normal' }}
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Total Alerts</span>
+                                <span style="font-weight: bold;">{{ student.alert_count }}</span>
+                            </div>
+                            
+                            {% if student.recent_alerts %}
+                            <div class="recent-alerts">
+                                <span class="detail-label" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; text-transform: uppercase;">Recent Activity</span>
+                                {% for alert in student.recent_alerts %}
+                                <div class="alert-item">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ alert.alert_type }} <span style="color: var(--text-muted); margin-left: auto;">{{ alert.time }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: white; border-radius: 8px; border: 1px solid var(--border);">
+                        <i class="fas fa-users-slash" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                        <p class="text-muted">No student activity found for this exam currently.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="stat-card" style="margin-top: 1.5rem;">
+                <h3 style="margin-bottom: 1rem;"><i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i> Cheating Alerts for this Exam</h3>
+                
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Alert Type</th>
+                                <th>Time</th>
+                                <th>Evidence</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alert in all_exam_alerts %}
+                            <tr>
+                                <td><span style="font-weight: 500; color: var(--text-main);">{{ alert.student_name }}</span></td>
+                                <td>
+                                    <span style="color: var(--danger); font-weight: 500;">
+                                        {{ alert.alert_type }}
+                                    </span>
+                                </td>
+                                <td class="text-muted" style="font-size: 0.875rem;">{{ alert.timestamp }}</td>
+                                <td>
+                                    {% if alert.screenshot_path or alert.audio_path %}
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        {% if alert.screenshot_path %}
+                                        <img src="{{ url_for('static', filename=alert.screenshot_path) }}" class="screenshot-thumbnail" onclick="openEvidenceModal('{{ url_for('static', filename=alert.screenshot_path) }}', '{% if alert.audio_path %}{{ url_for('static', filename=alert.audio_path) }}{% else %}{% endif %}')" alt="Evidence">
+                                        {% endif %}
+                                        {% if alert.audio_path %}
+                                        <button onclick="openEvidenceModal('{% if alert.screenshot_path %}{{ url_for('static', filename=alert.screenshot_path) }}{% else %}{% endif %}', '{{ url_for('static', filename=alert.audio_path) }}')" class="btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: var(--bg-alt); color: var(--text-main); border: 1px solid var(--border);"><i class="fas fa-volume-up"></i> Audio</button>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted"><i class="fas fa-ban"></i> No evidence</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="status-badge" style="
+                                        {% if alert.status == 'Pending' %}background-color: #FEF3C7; color: #D97706;
+                                        {% elif alert.status == 'Confirmed Cheating' %}background-color: #FEE2E2; color: #EF4444;
+                                        {% else %}background-color: #D1FAE5; color: #10B981;{% endif %}
+                                    ">
+                                        {{ alert.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                                    No alerts have been recorded for this exam.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Evidence Modal -->
+            <div id="evidenceModal" class="modal">
+                <div class="modal-content" style="max-width: 600px; width: 100%;">
+                    <span class="modal-close" onclick="closeEvidenceModal()">&times;</span>
+                    <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Evidence Review</h3>
+                    
+                    <div id="modalImgContainer" style="display: none; text-align: center; margin-bottom: 1rem;">
+                        <img id="modalImg" class="modal-img" src="" style="max-height: 50vh;">
+                    </div>
+                    
+                    <div id="modalAudioContainer" style="display: none; padding: 1rem; background: var(--bg-alt); border-radius: 4px; text-align: center;">
+                        <p style="margin-bottom: 0.5rem; font-size: 0.875rem; color: var(--text-muted);"><i class="fas fa-microphone"></i> Audio Recording</p>
+                        <audio id="modalAudio" controls style="width: 100%;"></audio>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+    
+    <script>
+        function openEvidenceModal(imgSrc, audioSrc) {
+            const modal = document.getElementById('evidenceModal');
+            const imgContainer = document.getElementById('modalImgContainer');
+            const img = document.getElementById('modalImg');
+            const audioContainer = document.getElementById('modalAudioContainer');
+            const audio = document.getElementById('modalAudio');
+            
+            if (imgSrc) {
+                img.src = imgSrc;
+                imgContainer.style.display = 'block';
+            } else {
+                imgContainer.style.display = 'none';
+                img.src = '';
+            }
+            
+            if (audioSrc) {
+                audio.src = audioSrc;
+                audioContainer.style.display = 'block';
+            } else {
+                audioContainer.style.display = 'none';
+                audio.src = '';
+            }
+            
+            modal.style.display = 'flex';
+        }
+        
+        function closeEvidenceModal() {
+            const modal = document.getElementById('evidenceModal');
+            const audio = document.getElementById('modalAudio');
+            
+            modal.style.display = 'none';
+            audio.pause();
+            audio.src = '';
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('evidenceModal')) {
+                closeEvidenceModal();
+            }
+        }
+    </script>
+</body>
+
+</html>
