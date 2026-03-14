@@ -84,25 +84,33 @@ function initExamFeatures() {
 function initProctoring() {
     const form = document.getElementById('examForm');
     const examId = form ? form.getAttribute('data-exam-id') : null;
-    let visibilityChanges = 0;
+    let tabSwitchCount = 0;
+    let visibilityTimeout = null;
     
     // Warn when tab is switched or minimized
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            visibilityChanges++;
-            showWarning(`Warning: You have left the exam tab. (${visibilityChanges}/3 allowed)`);
-            
-            // Send cheating alert backend
-            fetch('/upload_frame', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tab_switch: true, exam_id: examId })
-            }).catch(e => console.error(e));
-            
-            if (visibilityChanges >= 3) {
-                alert("Exam terminated due to multiple tab switches.");
-                if (form) form.submit();
-                else window.location.href = '/student/dashboard';
+        if (document.visibilityState === 'hidden') {
+            visibilityTimeout = setTimeout(() => {
+                tabSwitchCount++;
+                showWarning(`⚠ Tab switching detected. Please stay on the exam page. (${tabSwitchCount}/3 allowed)`);
+                
+                // Send cheating alert backend
+                fetch('/upload_frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tab_switch: true, exam_id: examId })
+                }).catch(e => console.error(e));
+                
+                if (tabSwitchCount >= 3) {
+                    alert("Exam terminated due to multiple tab switches.");
+                    if (form) form.submit();
+                    else window.location.href = '/student/dashboard';
+                }
+            }, 1000);
+        } else if (document.visibilityState === 'visible') {
+            if (visibilityTimeout) {
+                clearTimeout(visibilityTimeout);
+                visibilityTimeout = null;
             }
         }
     });
