@@ -16,8 +16,10 @@
                 <i class="fas fa-graduation-cap"></i> AI Exam
             </div>
             <nav class="sidebar-nav">
-                <a href="#" class="nav-link active"><i class="fas fa-home"></i> System Status</a>
-                <a href="#" class="nav-link"><i class="fas fa-user-cog"></i> Users</a>
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-link active"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="{{ url_for('admin_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Alerts</a>
+                <a href="{{ url_for('create_exam') }}" class="nav-link"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <a href="#" class="nav-link"><i class="fas fa-users"></i> Users & Students</a>
                 <a href="#" class="nav-link"><i class="fas fa-server"></i> Server Management</a>
                 <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </nav>
@@ -38,25 +40,81 @@
                     <div class="stat-value">542</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-title">System Load</div>
-                    <div class="stat-value" style="color: var(--text-main);">24%</div>
+                    <div class="stat-title">Active Exams</div>
+                    <div class="stat-value">{{ exams|length }}</div>
                 </div>
+                <a href="{{ url_for('admin_alerts') }}" style="text-decoration: none; color: inherit;">
+                    <div class="stat-card" style="cursor: pointer; border: 1px solid #FEE2E2;">
+                        <div class="stat-title" style="color: #991B1B;"><i class="fas fa-exclamation-circle"></i> Cheating Alerts</div>
+                        <div class="stat-value" style="color: #DC2626;">{{ alerts|length }}</div>
+                    </div>
+                </a>
                 <div class="stat-card">
-                    <div class="stat-title">Live AI Services</div>
-                    <div class="stat-value" style="color: var(--success);"><i class="fas fa-circle"
-                            style="font-size: 1rem; vertical-align: middle;"></i> Online</div>
+                    <div class="stat-title">Graded Submissions</div>
+                    <div class="stat-value">{{ results|length }}</div>
                 </div>
             </div>
 
             <div class="stat-card" style="margin-top: 1rem;">
                 <h3 style="margin-bottom: 1rem;">Administrative Actions</h3>
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <button class="btn-primary" style="width: auto;"><i class="fas fa-user-plus"></i> Add New
-                        User</button>
-                    <button class="btn-primary" style="width: auto; background-color: #374151;"><i
-                            class="fas fa-database"></i> Backup DB</button>
-                    <button class="btn-primary" style="width: auto; background-color: var(--danger);"><i
-                            class="fas fa-power-off"></i> Restart Services</button>
+                    <button class="btn-primary" style="width: auto;"><i class="fas fa-user-plus"></i> Add New User</button>
+                    <button class="btn-primary" style="width: auto; background-color: #374151;"><i class="fas fa-database"></i> Backup DB</button>
+                    <button class="btn-primary" style="width: auto; background-color: var(--danger);"><i class="fas fa-power-off"></i> Restart Services</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Recent Exam Results</h3>
+                    <a href="{{ url_for('download_results') }}" class="btn-primary" style="text-decoration: none; background: #059669;">
+                        <i class="fas fa-file-excel"></i> Export to Excel
+                    </a>
+                </div>
+                
+                <div style="overflow-x: auto; background: white; border: 1px solid var(--border); border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border); background: #F9FAFB;">
+                                <th style="padding: 1rem;">Student Name</th>
+                                <th style="padding: 1rem;">Register No.</th>
+                                <th style="padding: 1rem;">Exam</th>
+                                <th style="padding: 1rem;">Score</th>
+                                <th style="padding: 1rem;">Status</th>
+                                <th style="padding: 1rem;">Alerts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if results %}
+                                {% for r in results %}
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <td style="padding: 1rem;">{{ r.student_name }}</td>
+                                    <td style="padding: 1rem;">{{ r.register_number }}</td>
+                                    <td style="padding: 1rem;">{{ r.exam_name }}</td>
+                                    <td style="padding: 1rem; font-weight: 600;">{{ r.marks }}%</td>
+                                    <td style="padding: 1rem;">
+                                        {% if r.status == 'Pass' %}
+                                            <span style="color: #059669; font-weight: 500;"><i class="fas fa-check-circle"></i> Pass</span>
+                                        {% else %}
+                                            <span style="color: #DC2626; font-weight: 500;"><i class="fas fa-times-circle"></i> Fail</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding: 1rem;">
+                                        {% if r.cheating_alerts > 0 %}
+                                            <span style="color: #DC2626; font-weight: bold;">{{ r.cheating_alerts }}</span>
+                                        {% else %}
+                                            <span style="color: var(--text-muted);">0</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No results found.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>

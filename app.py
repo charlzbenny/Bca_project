@@ -147,8 +147,6 @@ def index():
         role = session.get('role')
         if role == 'admin':
             return redirect(url_for('admin_dashboard'))
-        elif role == 'teacher':
-            return redirect(url_for('teacher_dashboard'))
         elif role == 'student':
             return redirect(url_for('student_dashboard'))
     return redirect(url_for('login'))
@@ -171,8 +169,6 @@ def login():
             
             if user['role'] == 'admin':
                 return redirect(url_for('admin_dashboard'))
-            elif user['role'] == 'teacher':
-                return redirect(url_for('teacher_dashboard'))
             elif user['role'] == 'student':
                 return redirect(url_for('student_dashboard'))
         else:
@@ -189,21 +185,14 @@ def logout():
 def admin_dashboard():
     if session.get('role') != 'admin':
         return redirect(url_for('login'))
-    return render_template('admin_dashboard.html')
-
-@app.route('/teacher/dashboard')
-def teacher_dashboard():
-    if session.get('role') != 'teacher':
-        return redirect(url_for('login'))
         
     conn = get_db_connection()
-    # Fetch all custom exams created by teachers (ignoring the hardcoded 'Introduction to Python' for now unless we seed it)
+    # Fetch all exams
     exams = conn.execute('''
         SELECT e.*, 
                (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) as question_count
         FROM exams e
-        WHERE e.created_by = ?
-    ''', (session['user_id'],)).fetchall()
+    ''').fetchall()
     
     # Fetch recent cheating alerts
     # Join with users to get student names (in case of legacy alerts just using name)
@@ -220,11 +209,11 @@ def teacher_dashboard():
     
     conn.close()
     
-    return render_template('teacher_dashboard.html', alerts=alerts, exams=exams, results=results)
+    return render_template('admin_dashboard.html', alerts=alerts, exams=exams, results=results)
 
-@app.route('/teacher/alerts')
-def teacher_alerts():
-    if session.get('role') != 'teacher':
+@app.route('/admin/alerts')
+def admin_alerts():
+    if session.get('role') != 'admin':
         return redirect(url_for('login'))
         
     conn = get_db_connection()
@@ -238,9 +227,9 @@ def teacher_alerts():
     
     return render_template('alert_dashboard.html', alerts=alerts)
 
-@app.route('/teacher/update_alert/<int:alert_id>', methods=['POST'])
+@app.route('/admin/update_alert/<int:alert_id>', methods=['POST'])
 def update_alert(alert_id):
-    if session.get('role') != 'teacher':
+    if session.get('role') != 'admin':
         return redirect(url_for('login'))
         
     status = request.form.get('status')
@@ -251,11 +240,11 @@ def update_alert(alert_id):
         conn.close()
         flash('Alert status updated successfully.')
         
-    return redirect(url_for('teacher_alerts'))
+    return redirect(url_for('admin_alerts'))
 
-@app.route('/teacher/create_exam', methods=['GET', 'POST'])
+@app.route('/admin/create_exam', methods=['GET', 'POST'])
 def create_exam():
-    if session.get('role') != 'teacher':
+    if session.get('role') != 'admin':
         return redirect(url_for('login'))
         
     if request.method == 'POST':
@@ -295,7 +284,7 @@ def create_exam():
         conn.close()
         
         flash('Exam created successfully!')
-        return redirect(url_for('teacher_dashboard'))
+        return redirect(url_for('admin_dashboard'))
         
     return render_template('create_exam.html')
 
@@ -303,9 +292,9 @@ import pandas as pd
 from flask import send_file
 import io
 
-@app.route('/teacher/download_results')
+@app.route('/admin/download_results')
 def download_results():
-    if session.get('role') != 'teacher':
+    if session.get('role') != 'admin':
         return redirect(url_for('login'))
         
     conn = get_db_connection()
