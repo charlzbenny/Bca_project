@@ -440,10 +440,11 @@ def upload_frame():
         conn.close()
         return jsonify({'status': 'alert_recorded', 'type': "High Audio Level Detected"})
         
-    if 'tab_switch' in data:
+    if 'tab_switch' in data and 'image' not in data:
         conn = get_db_connection()
-        conn.execute('INSERT INTO cheating_alerts (student_id, alert_type) VALUES (?, ?)',
-                    (user_id, "Tab Switch / Visibility Change"))
+        exam_id = data.get('exam_id', None)
+        conn.execute('INSERT INTO cheating_alerts (exam_id, student_id, alert_type) VALUES (?, ?, ?)',
+                    (exam_id, user_id, "Tab Switch / Visibility Change"))
         conn.commit()
         conn.close()
         return jsonify({'status': 'alert_recorded', 'type': "Tab Switched"})
@@ -484,7 +485,9 @@ def upload_frame():
     
     alert_type = None
     
-    if results is None:
+    if data.get('tab_switch'):
+        alert_type = "Tab Switch / Visibility Change"
+    elif results is None:
         pass # CV disabled
     elif not results.multi_face_landmarks:
         alert_type = "No Face Detected"
@@ -567,6 +570,66 @@ def upload_frame():
         return jsonify({'status': 'alert_recorded', 'type': alert_type})
         
     return jsonify({'status': 'ok'})
+
+@app.route('/upload-cheating-video', methods=['POST'])
+def upload_cheating_video():
+    if session.get('role') != 'student':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    user_id = session.get('user_id')
+    exam_id = request.form.get('exam_id')
+    video_file = request.files.get('video')
+    
+    if not video_file:
+        return jsonify({'error': 'No video provided'}), 400
+        
+    upload_dir = os.path.join('static', 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_name = f"alert_video_{user_id}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.webm"
+    file_path = os.path.join(upload_dir, file_name)
+    relative_path = f"uploads/{file_name}"
+    
+    video_file.save(file_path)
+    
+    # Save the alert in DB
+    conn = get_db_connection()
+    conn.execute('INSERT INTO cheating_alerts (exam_id, student_id, alert_type, screenshot_path) VALUES (?, ?, ?, ?)',
+                 (exam_id, user_id, "Tab Switch / Visibility Change (Video)", relative_path))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'alert_recorded', 'type': "Tab Switch Video Recorded"})
+
+@app.route('/upload-cheating-audio', methods=['POST'])
+def upload_cheating_audio():
+    if session.get('role') != 'student':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    user_id = session.get('user_id')
+    exam_id = request.form.get('exam_id')
+    audio_file = request.files.get('audio')
+    
+    if not audio_file:
+        return jsonify({'error': 'No audio provided'}), 400
+        
+    upload_dir = os.path.join('static', 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_name = f"alert_audio_{user_id}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.webm"
+    file_path = os.path.join(upload_dir, file_name)
+    relative_path = f"uploads/{file_name}"
+    
+    audio_file.save(file_path)
+    
+    # Save the alert in DB
+    conn = get_db_connection()
+    conn.execute('INSERT INTO cheating_alerts (exam_id, student_id, alert_type, screenshot_path) VALUES (?, ?, ?, ?)',
+                 (exam_id, user_id, "High Audio Level Detected (Audio)", relative_path))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'alert_recorded', 'type': "High Audio Level Detected"})
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)

@@ -86,23 +86,135 @@ function initProctoring() {
     const examId = form ? form.getAttribute('data-exam-id') : null;
     let visibilityChanges = 0;
     
+    // Global screen stream video element
+    const screenVideo = document.createElement('video');
+    screenVideo.style.position = 'fixed';
+    screenVideo.style.top = '-9999px';
+    screenVideo.style.opacity = '0';
+    screenVideo.autoplay = true;
+    screenVideo.muted = true;
+    document.body.appendChild(screenVideo);
+
+    // Define a function for screen monitoring to allow restarting
+    function startScreenMonitoring() {
+        navigator.mediaDevices.getDisplayMedia({ video: true })
+            .then(stream => {
+                const track = stream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                
+                if (settings.displaySurface && settings.displaySurface !== 'monitor') {
+                    alert("Please select Entire Screen to continue the exam");
+                    track.stop();
+                    startScreenMonitoring();
+                    return;
+                }
+
+                screenVideo.srcObject = stream;
+                screenVideo.play();
+                
+                // Detect when screen sharing is stopped by the user
+                track.onended = () => {
+                    const wantsToContinue = confirm("If you stop screen sharing, your exam will be terminated.\n\nClick 'OK' to restart screen sharing and continue, or 'Cancel' to terminate the exam.");
+                    if (wantsToContinue) {
+                        startScreenMonitoring();
+                    } else {
+                        alert("Screen sharing stopped. Exam terminated.");
+                        if (form) {
+                            form.submit();
+                        } else {
+                            window.location.href = '/student/dashboard';
+                        }
+                    }
+                };
+            })
+            .catch(err => {
+                console.warn("Screen sharing permission denied or failed:", err);
+                alert("CRITICAL: Screen sharing permission is required to take this exam.");
+                if (form && screenVideo.srcObject) {
+                    form.submit();
+                } else {
+                    window.location.href = '/student/dashboard';
+                }
+            });
+    }
+
+    // Start it initially
+    startScreenMonitoring();
+
     // Warn when tab is switched or minimized
+    let tabSwitchTimeout = null;
+    let isTabActive = true;
+    let isRecordingVideo = false;
+    
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            visibilityChanges++;
-            showWarning(`Warning: You have left the exam tab. (${visibilityChanges}/3 allowed)`);
+        isTabActive = (document.visibilityState === 'visible');
+        if (document.visibilityState === 'hidden') {
             
-            // Send cheating alert backend
-            fetch('/upload_frame', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tab_switch: true, exam_id: examId })
-            }).catch(e => console.error(e));
-            
-            if (visibilityChanges >= 3) {
-                alert("Exam terminated due to multiple tab switches.");
-                if (form) form.submit();
-                else window.location.href = '/student/dashboard';
+            // Start video recording from active stream instead of screenshot
+            if (screenVideo.srcObject && screenVideo.readyState >= 2 && !isRecordingVideo) {
+                try {
+                    isRecordingVideo = true;
+                    // Start screen recording
+                    const mediaRecorder = new MediaRecorder(screenVideo.srcObject, { mimeType: 'video/webm' });
+                    const recordedChunks = [];
+                    
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) {
+                            recordedChunks.push(e.data);
+                        }
+                    };
+                    
+                    mediaRecorder.onstop = () => {
+                        isRecordingVideo = false;
+                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                        const formData = new FormData();
+                        formData.append('video', blob, 'cheating.webm');
+                        if (examId) {
+                            formData.append('exam_id', examId);
+                        }
+                        
+                        // Send video via FormData to the new endpoint
+                        fetch('/upload-cheating-video', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'alert_recorded') {
+                                showWarning("Notice: " + data.type);
+                            }
+                        })
+                        .catch(e => console.error("Error uploading video:", e));
+                    };
+                    
+                    mediaRecorder.start();
+                    
+                    // Stop recording after 6 seconds
+                    setTimeout(() => {
+                        if (mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                        }
+                    }, 6000);
+                } catch (e) {
+                    console.error("Failed to start MediaRecorder:", e);
+                    isRecordingVideo = false;
+                }
+            }
+
+            tabSwitchTimeout = setTimeout(() => {
+                visibilityChanges++;
+                showWarning(`Warning: You have left the exam tab. (${visibilityChanges}/3 allowed)`);
+                
+                if (visibilityChanges >= 3) {
+                    alert("Exam terminated due to multiple tab switches.");
+                    if (form) form.submit();
+                    else window.location.href = '/student/dashboard';
+                }
+            }, 1000);
+        } else if (document.visibilityState === 'visible') {
+            if (tabSwitchTimeout) {
+                clearTimeout(tabSwitchTimeout);
+                tabSwitchTimeout = null;
             }
         }
     });
@@ -142,7 +254,10 @@ function initProctoring() {
             analyser.connect(javascriptNode);
             javascriptNode.connect(audioContext.destination);
             
-            let audioTriggerTimeout = null;
+            let isRecordingAudio = false;
+            let audioRecorder = null;
+            let audioChunks = [];
+            let silenceTimer = null;
             
             javascriptNode.onaudioprocess = function() {
                 var array = new Uint8Array(analyser.frequencyBinCount);
@@ -156,17 +271,62 @@ function initProctoring() {
                 
                 // If audio volume exceeds threshold
                 if (average > 40) { 
-                    if (!audioTriggerTimeout) {
-                        // Debounce audio triggers so we don't spam the endpoint every millisecond
-                        audioTriggerTimeout = setTimeout(() => {
-                            fetch('/upload_frame', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ audio_level: average, exam_id: examId })
-                            }).catch(e => console.error(e));
+                    if (!isRecordingAudio) {
+                        isRecordingAudio = true;
+                        audioChunks = [];
+                        try {
+                            const audioStream = new MediaStream([stream.getAudioTracks()[0]]);
+                            audioRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+                        } catch (e) {
+                            const audioStream = new MediaStream([stream.getAudioTracks()[0]]);
+                            audioRecorder = new MediaRecorder(audioStream);
+                        }
+                        
+                        audioRecorder.ondataavailable = e => {
+                            if (e.data.size > 0) audioChunks.push(e.data);
+                        };
+                        
+                        audioRecorder.onstop = () => {
+                            isRecordingAudio = false;
+                            const blob = new Blob(audioChunks, { type: 'audio/webm' });
                             
-                            audioTriggerTimeout = null;
-                        }, 5000); 
+                            if (blob.size > 0) {
+                                const formData = new FormData();
+                                formData.append('audio', blob, 'cheating.webm');
+                                if (examId) formData.append('exam_id', examId);
+                                
+                                fetch('/upload-cheating-audio', {
+                                    method: 'POST',
+                                    body: formData
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.status === 'alert_recorded') {
+                                        showWarning("Notice: " + data.type);
+                                    }
+                                })
+                                .catch(e => console.error("Error uploading audio:", e));
+                            } else {
+                                console.warn("Recorded audio blob is empty, not uploading.");
+                            }
+                        };
+                        
+                        audioRecorder.start();
+                    }
+                    
+                    if (silenceTimer) {
+                        clearTimeout(silenceTimer);
+                        silenceTimer = null;
+                    }
+                } else {
+                    if (isRecordingAudio && !silenceTimer) {
+                        // Wait for 3 seconds of continuous silence before stopping
+                        silenceTimer = setTimeout(() => {
+                            if (audioRecorder && audioRecorder.state === 'recording') {
+                                audioRecorder.stop();
+                            }
+                            silenceTimer = null;
+                        }, 3000);
                     }
                 }
             }
@@ -177,6 +337,8 @@ function initProctoring() {
                 canvas.height = video.videoHeight;
                 
                 setInterval(() => {
+                    if (!isTabActive) return; // Pause face detection when tab is hidden
+                    
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     const imageData = canvas.toDataURL('image/jpeg', 0.8);
                     
