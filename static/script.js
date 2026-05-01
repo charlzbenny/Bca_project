@@ -120,6 +120,11 @@ function initProctoring() {
                     } else {
                         alert("Screen sharing stopped. Exam terminated.");
                         if (form) {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'is_terminated';
+                            input.value = 'true';
+                            form.appendChild(input);
                             form.submit();
                         } else {
                             window.location.href = '/student/dashboard';
@@ -131,6 +136,11 @@ function initProctoring() {
                 console.warn("Screen sharing permission denied or failed:", err);
                 alert("CRITICAL: Screen sharing permission is required to take this exam.");
                 if (form && screenVideo.srcObject) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'is_terminated';
+                    input.value = 'true';
+                    form.appendChild(input);
                     form.submit();
                 } else {
                     window.location.href = '/student/dashboard';
@@ -207,8 +217,16 @@ function initProctoring() {
                 
                 if (visibilityChanges >= 3) {
                     alert("Exam terminated due to multiple tab switches.");
-                    if (form) form.submit();
-                    else window.location.href = '/student/dashboard';
+                    if (form) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'is_terminated';
+                        input.value = 'true';
+                        form.appendChild(input);
+                        form.submit();
+                    } else {
+                        window.location.href = '/student/dashboard';
+                    }
                 }
             }, 1000);
         } else if (document.visibilityState === 'visible') {

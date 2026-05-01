@@ -48,6 +48,7 @@ def init_db():
     c.execute('DROP TABLE IF EXISTS answers')
     c.execute('DROP TABLE IF EXISTS results')
     c.execute('DROP TABLE IF EXISTS cheating_alerts')
+    c.execute('DROP TABLE IF EXISTS exam_attempts')
     
     c.execute('''
         CREATE TABLE users (
@@ -122,6 +123,19 @@ def init_db():
             screenshot_path TEXT,
             status TEXT DEFAULT 'Pending',
             FOREIGN KEY (student_id) REFERENCES users (id)
+        )
+    ''')
+    
+    c.execute('''
+        CREATE TABLE exam_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER NOT NULL,
+            exam_id INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            end_time DATETIME,
+            FOREIGN KEY (student_id) REFERENCES users (id),
+            FOREIGN KEY (exam_id) REFERENCES exams (id)
         )
     ''')
     
@@ -331,12 +345,39 @@ def student_dashboard():
         FROM exams e
     ''').fetchall()
     
-    # Fetch student's past results
+    # Fetch student attempts
+    attempts = conn.execute('SELECT * FROM exam_attempts WHERE student_id = ?', (session['user_id'],)).fetchall()
+    attempt_map = {att['exam_id']: att for att in attempts}
+    
+    available_exams = []
+    completed_exams = []
+    
+    # Fetch student's past results to match against completions
     results = conn.execute('SELECT * FROM results WHERE register_number = ?', (student['register_number'],)).fetchall()
+    result_map = {res['exam_name']: res for res in results}
+    
+    for exam in exams:
+        if exam['id'] in attempt_map:
+            exam_dict = dict(exam)
+            status = attempt_map[exam['id']]['status']
+            
+            # If the status is Submitted but it has a result, check for cheating
+            if status == 'Submitted' and exam['exam_name'] in result_map:
+                result = result_map[exam['exam_name']]
+                if result['cheating_alerts'] > 0:
+                    status = 'Pending for Review'
+                else:
+                    status = 'Completed'
+            
+            exam_dict['attempt_status'] = status
+            exam_dict['result'] = result_map.get(exam['exam_name'])
+            completed_exams.append(exam_dict)
+        else:
+            available_exams.append(exam)
     
     conn.close()
     
-    return render_template('student_dashboard.html', student=student, exams=exams, results=results)
+    return render_template('student_dashboard.html', student=student, available_exams=available_exams, completed_exams=completed_exams, results=results)
 
 @app.route('/exam/<int:exam_id>')
 def exam_page(exam_id):
@@ -352,12 +393,19 @@ def exam_page(exam_id):
         return redirect(url_for('student_dashboard'))
         
     questions = conn.execute('SELECT * FROM questions WHERE exam_id = ?', (exam_id,)).fetchall()
-    conn.close()
-        
-    # Reset gaze tracking when exam starts
+    
     user_id = session.get('user_id')
     if user_id:
+        # Reset gaze tracking when exam starts
         gaze_tracking_sessions[user_id] = 0
+        
+        # Record attempt if not exists
+        attempt = conn.execute('SELECT * FROM exam_attempts WHERE student_id = ? AND exam_id = ?', (user_id, exam_id)).fetchone()
+        if not attempt:
+            conn.execute('INSERT INTO exam_attempts (student_id, exam_id, status) VALUES (?, ?, ?)', (user_id, exam_id, 'In Progress'))
+            conn.commit()
+            
+    conn.close()
         
     return render_template('exam_page.html', exam=exam, questions=questions)
 
@@ -380,6 +428,9 @@ def submit_exam(exam_id):
     
     correct_count = 0
     total_questions = len(questions)
+    
+    is_terminated = request.form.get('is_terminated') == 'true'
+    attempt_status = 'Terminated' if is_terminated else 'Submitted'
     
     # Process answers
     for q in questions:
@@ -412,6 +463,12 @@ def submit_exam(exam_id):
         INSERT INTO results (student_name, register_number, exam_name, marks, status, cheating_alerts)
         VALUES (?, ?, ?, ?, ?, ?)
     ''', (student['name'], student['register_number'], exam['exam_name'], marks_percentage, status, alerts_total))
+    
+    cursor.execute('''
+        UPDATE exam_attempts 
+        SET status = ?, end_time = CURRENT_TIMESTAMP
+        WHERE student_id = ? AND exam_id = ?
+    ''', (attempt_status, student_id, exam_id))
     
     conn.commit()
     conn.close()

@@ -56,11 +56,11 @@
             <div class="dashboard-grid">
                 <div class="stat-card">
                     <div class="stat-title">Available Exams</div>
-                    <div class="stat-value">{{ exams|length }}</div>
+                    <div class="stat-value">{{ available_exams|length }}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-title">Completed Exams</div>
-                    <div class="stat-value">{{ results|length }}</div>
+                    <div class="stat-value">{{ completed_exams|length }}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-title">Average Score</div>
@@ -91,34 +91,65 @@
                 
                 <h3 style="margin-bottom: 1rem;">Available Exams</h3>
                 
-                {% if exams %}
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
-                    {% for exam in exams %}
-                        <!-- We can disable the Start Exam button if they already have a matching result -->
-                        {% set ns = namespace(completed=false) %}
-                        {% for r in results %}
-                            {% if r.exam_name == exam.exam_name %}
-                                {% set ns.completed = true %}
-                            {% endif %}
-                        {% endfor %}
-
+                {% if available_exams %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                    {% for exam in available_exams %}
                         <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                             <h4 style="margin-bottom: 0.5rem; color: var(--text-main);">{{ exam.exam_name }}</h4>
                             <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
                                 <i class="far fa-clock"></i> {{ exam.duration }} mins • <i class="fas fa-list-ol"></i> {{ exam.question_count }} questions
                             </p>
+                            <a href="{{ url_for('exam_page', exam_id=exam.id) }}" class="btn-primary" style="text-decoration: none; width: 100%; display: block; text-align: center;"><i class="fas fa-play"></i> Start Exam</a>
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% else %}
+                    <div style="padding: 2rem; border: 1px dashed var(--border); border-radius: 8px; text-align: center; color: var(--text-muted); margin-bottom: 2rem;">
+                        No exams available right now.
+                    </div>
+                {% endif %}
+
+                <h3 style="margin-bottom: 1rem;">Completed / Attempted Exams</h3>
+                
+                {% if completed_exams %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+                    {% for exam in completed_exams %}
+                        <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <h4 style="margin-bottom: 0.5rem; color: var(--text-main);">{{ exam.exam_name }}</h4>
+                                <!-- Badge -->
+                                {% if exam.attempt_status == 'Completed' %}
+                                    <span style="background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">Completed</span>
+                                {% elif exam.attempt_status == 'Terminated' %}
+                                    <span style="background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">Terminated</span>
+                                {% elif exam.attempt_status == 'Pending for Review' %}
+                                    <span style="background: #ffedd5; color: #9a3412; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">Pending for Review</span>
+                                {% else %}
+                                    <span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">In Progress</span>
+                                {% endif %}
+                            </div>
                             
-                            {% if ns.completed %}
-                                <button class="btn-primary" disabled style="width: 100%; opacity: 0.5; cursor: not-allowed;"><i class="fas fa-check-circle"></i> Completed</button>
-                            {% else %}
-                                <a href="{{ url_for('exam_page', exam_id=exam.id) }}" class="btn-primary" style="text-decoration: none; width: 100%; display: block; text-align: center;"><i class="fas fa-play"></i> Start Exam</a>
-                            {% endif %}
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
+                                <i class="far fa-clock"></i> {{ exam.duration }} mins • <i class="fas fa-list-ol"></i> {{ exam.question_count }} questions
+                            </p>
+                            
+                            <button class="btn-primary" disabled style="width: 100%; opacity: 0.6; cursor: not-allowed; background: var(--muted); border: none;">
+                                {% if exam.attempt_status == 'Pending for Review' %}
+                                    <i class="fas fa-user-clock"></i> Teacher Review
+                                {% elif exam.attempt_status == 'Terminated' %}
+                                    <i class="fas fa-ban"></i> Access Revoked
+                                {% elif exam.attempt_status == 'Completed' %}
+                                    <i class="fas fa-check"></i> Finished
+                                {% else %}
+                                    <i class="fas fa-spinner"></i> Ongoing
+                                {% endif %}
+                            </button>
                         </div>
                     {% endfor %}
                     </div>
                 {% else %}
                     <div style="padding: 2rem; border: 1px dashed var(--border); border-radius: 8px; text-align: center; color: var(--text-muted);">
-                        No exams available yet.
+                        You have not attempted any exams yet.
                     </div>
                 {% endif %}
         </main>

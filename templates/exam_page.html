@@ -5,81 +5,242 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Examination in Progress</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #22c55e;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        /* HEADER */
+        .exam-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: var(--card);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            font-weight: 600;
+        }
+
+        .timer {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        /* MAIN LAYOUT */
+        .exam-container {
+            display: flex;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        /* QUESTION AREA */
+        .question-container {
+            flex: 2;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .question-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* OPTIONS */
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .option-label:hover {
+            border-color: var(--primary);
+            background: #eff6ff;
+        }
+
+        .option-label input {
+            margin-right: 10px;
+        }
+
+        /* FOOTER BUTTONS */
+        .exam-footer {
+            margin-top: 25px;
+            display: flex;
+            align-items: center;
+        }
+
+        .btn-primary {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        /* SIDEBAR */
+        .video-container {
+            flex: 1;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        video {
+            width: 100%;
+            border-radius: 8px;
+            background: black;
+        }
+
+        .text-muted {
+            color: var(--muted);
+        }
+
+        /* ALERT */
+        #alert-banner {
+            font-weight: 500;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 900px) {
+            .exam-container {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 
 <body>
+
     <div class="exam-header">
-        <div style="font-size: 1.25rem; font-weight: 600;"><i class="fas fa-file-alt"></i> {{ exam.exam_name }}</div>
-        <div><i class="fas fa-clipboard-list" style="color: var(--primary);"></i> <span id="qCountText">Question 1 of {{ questions|length }}</span></div>
-        <div class="timer" id="timer"><i class="far fa-clock"></i> <span id="timeDisplay">{{ exam.duration }}:00</span></div>
+        <div><i class="fas fa-file-alt"></i> {{ exam.exam_name }}</div>
+        <div><i class="fas fa-clipboard-list"></i> <span id="qCountText">Question 1 of {{ questions|length }}</span>
+        </div>
+        <div class="timer"><i class="far fa-clock"></i> <span id="timeDisplay">{{ exam.duration }}:00</span></div>
     </div>
 
-    <!-- Alert banner injected by script when looking away -->
-    <div id="alert-banner" style="display: none; background: #FEF2F2; color: #991B1B; padding: 1rem; text-align: center; border-bottom: 1px solid #FCA5A5; font-weight: 500;">
-        <i class="fas fa-exclamation-triangle"></i> Suspicious activity detected! Please look at the screen.
+    <div id="alert-banner"
+        style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 15px 30px; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);">
+        ⚠️ Suspicious activity detected! Please look at the screen.
     </div>
 
     <div class="exam-container">
+
         <main class="question-container">
-            <!-- Store exam duration in data attribute for js -->
-            <form id="examForm" method="POST" action="{{ url_for('submit_exam', exam_id=exam.id) }}" data-duration="{{ exam.duration }}" data-exam-id="{{ exam.id }}">
-                
+            <form id="examForm" method="POST" action="{{ url_for('submit_exam', exam_id=exam.id) }}"
+                data-duration="{{ exam.duration }}" data-exam-id="{{ exam.id }}">
+
                 {% for q in questions %}
-                <div class="question-page" id="q-{{ loop.index }}" {% if loop.index != 1 %}style="display: none;"{% endif %}>
+                <div class="question-page" id="q-{{ loop.index }}" {% if loop.index !=1 %}style="display: none;" {%
+                    endif %}>
                     <h2 class="question-title">{{ loop.index }}. {{ q.question_text }}</h2>
+
                     <div class="options-grid">
                         <label class="option-label">
                             <input type="radio" name="q{{ q.id }}" value="{{ q.option1 }}">
-                            <span class="option-text">{{ q.option1 }}</span>
+                            {{ q.option1 }}
                         </label>
+
                         <label class="option-label">
                             <input type="radio" name="q{{ q.id }}" value="{{ q.option2 }}">
-                            <span class="option-text">{{ q.option2 }}</span>
+                            {{ q.option2 }}
                         </label>
+
                         <label class="option-label">
                             <input type="radio" name="q{{ q.id }}" value="{{ q.option3 }}">
-                            <span class="option-text">{{ q.option3 }}</span>
+                            {{ q.option3 }}
                         </label>
+
                         <label class="option-label">
                             <input type="radio" name="q{{ q.id }}" value="{{ q.option4 }}">
-                            <span class="option-text">{{ q.option4 }}</span>
+                            {{ q.option4 }}
                         </label>
                     </div>
                 </div>
                 {% endfor %}
 
                 <div class="exam-footer">
-                    <button type="button" class="btn-primary" id="prevBtn" style="background: var(--bg-alt); color: var(--text-main); display: none;"><i class="fas fa-arrow-left"></i> Previous</button>
-                    <!-- Spacer -->
-                    <div style="flex: 1;"></div>
-                    <button type="button" class="btn-primary" id="nextBtn" {% if questions|length <= 1 %}style="display: none;"{% endif %}>Next <i class="fas fa-arrow-right"></i></button>
-                    <button type="submit" class="btn-primary" id="submitBtn" {% if questions|length > 1 %}style="display: none; background: var(--success);"{% else %}style="background: var(--success);"{% endif %}><i class="fas fa-check"></i> Submit Exam</button>
+                    <button type="button" class="btn-primary" id="prevBtn"
+                        style="background: #e2e8f0; color: #1e293b; display: none;">
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>
+
+                    <div style="flex:1;"></div>
+
+                    <button type="button" class="btn-primary" id="nextBtn" {% if questions|length <=1
+                        %}style="display: none;" {% endif %}>
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+
+                    <button type="submit" class="btn-primary" id="submitBtn" {% if questions|length> 1 %}
+                        style="display: none; background: var(--success);"
+                        {% else %}
+                        style="background: var(--success);"
+                        {% endif %}>
+                        <i class="fas fa-check"></i> Submit Exam
+                    </button>
                 </div>
             </form>
         </main>
-        
-        <aside class="video-container">
-            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
-                <span><i class="fas fa-shield-alt" style="color: var(--primary);"></i> Live Proctoring</span>
-                <span style="font-size: 0.75rem; background: #D1FAE5; color: #065F46; padding: 2px 6px; border-radius: 4px;">ACTIVE</span>
-            </h3>
-            <div class="video-overlay" id="videoOverlay">
-                <i class="fas fa-camera text-muted" style="font-size: 2rem;"></i>
-                <p class="text-muted" style="margin-top: 1rem;">Initializing camera...</p>
+
+        <aside class="video-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #f0fdf4; border: 1px solid #bbf7d0;">
+            <div style="font-size: 3rem; color: #22c55e; margin-bottom: 15px;">
+                <i class="fas fa-user-shield"></i>
             </div>
-            <!-- Live WebCam Feed -->
-            <video id="webcam" autoplay playsinline></video>
-            
-            <p class="text-muted" style="margin-top: 1rem; font-size: 0.875rem;">
-                <i class="fas fa-info-circle"></i> Your camera, microphone, and browser focus are being monitored.
+            <h3 style="color: #166534; margin-bottom: 10px;">
+                Monitoring Active
+            </h3>
+            <p style="color: #15803d; font-weight: 500;">
+                Your exam is being silently proctored in the background. Good luck!
             </p>
+
+            <!-- Hidden webcam feed for background monitoring (muted to prevent audio feedback) -->
+            <video id="webcam" autoplay playsinline muted style="position: absolute; visibility: hidden; width: 1px; height: 1px; pointer-events: none;"></video>
         </aside>
+
     </div>
 
-    <!-- The proctor warning will be injected here via script.js -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+
 </body>
 
 </html>
