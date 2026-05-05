@@ -302,6 +302,156 @@ def create_exam():
         
     return render_template('create_exam.html')
 
+@app.route('/admin/manage_exams')
+def manage_exams():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    exams = conn.execute('''
+        SELECT e.*, 
+               (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) as question_count
+        FROM exams e
+    ''').fetchall()
+    conn.close()
+    
+    return render_template('manage_exams.html', exams=exams)
+
+@app.route('/admin/edit_exam/<int:exam_id>', methods=['GET', 'POST'])
+def edit_exam(exam_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    
+    if request.method == 'POST':
+        exam_name = request.form['exam_name']
+        duration = int(request.form['duration'])
+        conn.execute('UPDATE exams SET exam_name = ?, duration = ? WHERE id = ?', (exam_name, duration, exam_id))
+        conn.commit()
+        flash('Exam details updated successfully!')
+        
+    exam = conn.execute('SELECT * FROM exams WHERE id = ?', (exam_id,)).fetchone()
+    questions = conn.execute('SELECT * FROM questions WHERE exam_id = ?', (exam_id,)).fetchall()
+    conn.close()
+    
+    if not exam:
+        flash('Exam not found.')
+        return redirect(url_for('manage_exams'))
+        
+    return render_template('edit_exam.html', exam=exam, questions=questions)
+
+@app.route('/admin/delete_exam/<int:exam_id>', methods=['POST'])
+def delete_exam(exam_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    
+    # Manually cascade delete to maintain data integrity
+    conn.execute('DELETE FROM answers WHERE exam_id = ?', (exam_id,))
+    conn.execute('DELETE FROM cheating_alerts WHERE exam_id = ?', (exam_id,))
+    conn.execute('DELETE FROM exam_attempts WHERE exam_id = ?', (exam_id,))
+    conn.execute('DELETE FROM questions WHERE exam_id = ?', (exam_id,))
+    conn.execute('DELETE FROM exams WHERE id = ?', (exam_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    flash('Exam deleted successfully.')
+    return redirect(url_for('manage_exams'))
+
+@app.route('/admin/add_question/<int:exam_id>', methods=['GET', 'POST'])
+def add_question(exam_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    exam = conn.execute('SELECT * FROM exams WHERE id = ?', (exam_id,)).fetchone()
+    
+    if not exam:
+        conn.close()
+        flash('Exam not found.')
+        return redirect(url_for('manage_exams'))
+        
+    if request.method == 'POST':
+        q_text = request.form['question_text']
+        o1 = request.form['option1']
+        o2 = request.form['option2']
+        o3 = request.form['option3']
+        o4 = request.form['option4']
+        correct = request.form['correct_answer']
+        
+        conn.execute('''
+            INSERT INTO questions (exam_id, question_text, option1, option2, option3, option4, correct_answer)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (exam_id, q_text, o1, o2, o3, o4, correct))
+        conn.commit()
+        conn.close()
+        
+        flash('Question added successfully!')
+        return redirect(url_for('edit_exam', exam_id=exam_id))
+        
+    conn.close()
+    return render_template('add_question.html', exam=exam)
+
+@app.route('/admin/edit_question/<int:question_id>', methods=['GET', 'POST'])
+def edit_question(question_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    question = conn.execute('SELECT * FROM questions WHERE id = ?', (question_id,)).fetchone()
+    
+    if not question:
+        conn.close()
+        flash('Question not found.')
+        return redirect(url_for('manage_exams'))
+        
+    if request.method == 'POST':
+        q_text = request.form['question_text']
+        o1 = request.form['option1']
+        o2 = request.form['option2']
+        o3 = request.form['option3']
+        o4 = request.form['option4']
+        correct = request.form['correct_answer']
+        
+        conn.execute('''
+            UPDATE questions 
+            SET question_text = ?, option1 = ?, option2 = ?, option3 = ?, option4 = ?, correct_answer = ?
+            WHERE id = ?
+        ''', (q_text, o1, o2, o3, o4, correct, question_id))
+        conn.commit()
+        
+        exam_id = question['exam_id']
+        conn.close()
+        flash('Question updated successfully!')
+        return redirect(url_for('edit_exam', exam_id=exam_id))
+        
+    conn.close()
+    return render_template('edit_question.html', question=question)
+
+@app.route('/admin/delete_question/<int:question_id>', methods=['POST'])
+def delete_question(question_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    question = conn.execute('SELECT exam_id FROM questions WHERE id = ?', (question_id,)).fetchone()
+    
+    if question:
+        exam_id = question['exam_id']
+        conn.execute('DELETE FROM answers WHERE question_id = ?', (question_id,))
+        conn.execute('DELETE FROM questions WHERE id = ?', (question_id,))
+        conn.commit()
+        conn.close()
+        flash('Question deleted successfully.')
+        return redirect(url_for('edit_exam', exam_id=exam_id))
+        
+    conn.close()
+    flash('Question not found.')
+    return redirect(url_for('manage_exams'))
+
 import pandas as pd
 from flask import send_file
 import io

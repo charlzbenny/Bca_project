@@ -65,7 +65,15 @@
             <nav class="sidebar-nav">
                 <a href="{{ url_for('admin_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
                 <a href="{{ url_for('admin_alerts') }}" class="nav-link active"><i class="fas fa-exclamation-triangle"></i> Alerts</a>
-                <a href="{{ url_for('create_exam') }}" class="nav-link"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                <div class="nav-item-dropdown">
+                    <a href="#" class="nav-link" onclick="document.getElementById('exams-dropdown').classList.toggle('show'); return false;">
+                        <i class="fas fa-file-alt"></i> Exams <i class="fas fa-chevron-down" style="margin-left: auto;"></i>
+                    </a>
+                    <div id="exams-dropdown" class="dropdown-content">
+                        <a href="{{ url_for('create_exam') }}" class="nav-link"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                        <a href="{{ url_for('manage_exams') }}" class="nav-link"><i class="fas fa-list"></i> Manage Exams</a>
+                    </div>
+                </div>
                 <a href="#" class="nav-link"><i class="fas fa-users"></i> Users & Students</a>
                 <a href="#" class="nav-link"><i class="fas fa-server"></i> Server Management</a>
                 <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>

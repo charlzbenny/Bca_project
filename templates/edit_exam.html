@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Exam - AI Proctoring System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .question-list-item {
+            background: #fff;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i> AI Exam
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="{{ url_for('admin_alerts') }}" class="nav-link"><i class="fas fa-exclamation-triangle"></i> Alerts</a>
+                <div class="nav-item-dropdown">
+                    <a href="#" class="nav-link" onclick="document.getElementById('exams-dropdown').classList.toggle('show'); return false;">
+                        <i class="fas fa-file-alt"></i> Exams <i class="fas fa-chevron-down" style="margin-left: auto;"></i>
+                    </a>
+                    <div id="exams-dropdown" class="dropdown-content show">
+                        <a href="{{ url_for('create_exam') }}" class="nav-link"><i class="fas fa-plus-circle"></i> Create Exam</a>
+                        <a href="{{ url_for('manage_exams') }}" class="nav-link active"><i class="fas fa-list"></i> Manage Exams</a>
+                    </div>
+                </div>
+                <a href="#" class="nav-link"><i class="fas fa-users"></i> Users & Students</a>
+                <a href="#" class="nav-link"><i class="fas fa-server"></i> Server Management</a>
+                <a href="{{ url_for('logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <div class="header-title">Edit Exam</div>
+                    <p class="text-muted" style="margin-top: 0.25rem;">Update exam details and manage its questions.</p>
+                </div>
+                <div class="user-profile">
+                    <span style="font-weight: 500;">{{ session['name'] }}</span>
+                    <div class="avatar" style="background-color: #8B5CF6;">{{ session['name'][0] }}</div>
+                </div>
+            </header>
+
+            <div style="margin-top: 1rem;">
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    {% for message in messages %}
+                      <div class="alert" style="background-color: #D1FAE5; color: #065F46; border: 1px solid #10B981;">
+                        {{ message }}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('edit_exam', exam_id=exam.id) }}" style="max-width: 800px;">
+                    <div class="stat-card" style="margin-bottom: 2rem;">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--primary);">Exam Settings</h3>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+                            <div class="form-group mb-0">
+                                <label class="form-label" for="exam_name">Exam Title</label>
+                                <input class="form-input" type="text" id="exam_name" name="exam_name" value="{{ exam.exam_name }}" required>
+                            </div>
+                            <div class="form-group mb-0">
+                                <label class="form-label" for="duration">Duration (Minutes)</label>
+                                <input class="form-input" type="number" id="duration" name="duration" min="5" value="{{ exam.duration }}" required>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1.5rem;">
+                            <button type="submit" class="btn-primary" style="width: auto;"><i class="fas fa-save"></i> Save Changes</button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="stat-card" style="max-width: 800px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="color: var(--primary);">Questions</h3>
+                        <a href="{{ url_for('add_question', exam_id=exam.id) }}" class="btn-primary" style="text-decoration: none; width: auto; background-color: var(--success);"><i class="fas fa-plus"></i> Add Question</a>
+                    </div>
+
+                    {% if questions %}
+                        {% for q in questions %}
+                            <div class="question-list-item">
+                                <div>
+                                    <div style="font-weight: 500; margin-bottom: 0.25rem;">{{ loop.index }}. {{ q.question_text }}</div>
+                                    <div class="text-muted" style="font-size: 0.875rem;">Options: {{ q.option1 }}, {{ q.option2 }}, {{ q.option3 }}, {{ q.option4 }}</div>
+                                    <div style="font-size: 0.875rem; color: var(--success); margin-top: 0.25rem;">Correct: {{ q.correct_answer }}</div>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; margin-left: 1rem;">
+                                    <a href="{{ url_for('edit_question', question_id=q.id) }}" class="btn-primary" style="padding: 0.5rem 0.75rem; font-size: 0.875rem; background-color: #3B82F6; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ url_for('delete_question', question_id=q.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this question?');">
+                                        <button type="submit" class="btn-primary" style="padding: 0.5rem 0.75rem; font-size: 0.875rem; background-color: var(--danger); display: flex; align-items: center; justify-content: center;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted" style="text-align: center; padding: 2rem 0;">No questions added yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
