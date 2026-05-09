@@ -134,6 +134,7 @@ def init_db():
             status TEXT NOT NULL,
             start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
             end_time DATETIME,
+            cheating_verified BOOLEAN DEFAULT FALSE,
             FOREIGN KEY (student_id) REFERENCES users (id),
             FOREIGN KEY (exam_id) REFERENCES exams (id)
         )
@@ -249,10 +250,64 @@ def update_alert(alert_id):
     status = request.form.get('status')
     if status in ['Confirmed Cheating', 'False Alert', 'Pending']:
         conn = get_db_connection()
-        conn.execute('UPDATE cheating_alerts SET status = ? WHERE id = ?', (status, alert_id))
+        alert = conn.execute('SELECT * FROM cheating_alerts WHERE id = ?', (alert_id,)).fetchone()
+        
+        if alert:
+            student_id = alert['student_id']
+            exam_id = alert['exam_id']
+            student = conn.execute('SELECT * FROM users WHERE id = ?', (student_id,)).fetchone()
+            
+            # Use a fallback if exam_id is None
+            exam = None
+            if exam_id:
+                exam = conn.execute('SELECT * FROM exams WHERE id = ?', (exam_id,)).fetchone()
+            
+            conn.execute('UPDATE cheating_alerts SET status = ? WHERE id = ?', (status, alert_id))
+            
+            if status == 'Confirmed Cheating':
+                if exam_id:
+                    conn.execute('UPDATE exam_attempts SET status = ?, cheating_verified = ? WHERE student_id = ? AND exam_id = ?', 
+                                 ('Cheating Detected', True, student_id, exam_id))
+                
+                if student and exam:
+                    conn.execute('UPDATE results SET status = ? WHERE register_number = ? AND exam_name = ?',
+                                 ('Fail', student['register_number'], exam['exam_name']))
+                                 
+                flash('Cheating confirmed. Student marked as failed.')
+                
+            elif status == 'False Alert':
+                if exam_id:
+                    conn.execute('UPDATE exam_attempts SET cheating_verified = ? WHERE student_id = ? AND exam_id = ?', 
+                                 (False, student_id, exam_id))
+                
+                other_alerts = 0
+                if exam_id:
+                    row = conn.execute('''
+                        SELECT COUNT(*) as c FROM cheating_alerts 
+                        WHERE student_id = ? AND exam_id = ? AND status = 'Confirmed Cheating'
+                    ''', (student_id, exam_id)).fetchone()
+                    other_alerts = row['c'] if row else 0
+                
+                if other_alerts == 0 and exam_id:
+                    conn.execute('''
+                        UPDATE exam_attempts SET status = 'Submitted' 
+                        WHERE student_id = ? AND exam_id = ? AND status = 'Cheating Detected'
+                    ''', (student_id, exam_id))
+                    
+                    if student and exam:
+                        result = conn.execute('SELECT marks FROM results WHERE register_number = ? AND exam_name = ?',
+                                              (student['register_number'], exam['exam_name'])).fetchone()
+                        if result:
+                            new_status = 'Pass' if result['marks'] >= 50 else 'Fail'
+                            conn.execute('UPDATE results SET status = ? WHERE register_number = ? AND exam_name = ?',
+                                         (new_status, student['register_number'], exam['exam_name']))
+                                         
+                flash('Alert marked as false successfully.')
+            else:
+                flash('Alert status updated successfully.')
+                
         conn.commit()
         conn.close()
-        flash('Alert status updated successfully.')
         
     return redirect(url_for('admin_alerts'))
 

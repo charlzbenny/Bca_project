@@ -139,14 +139,22 @@
                                     </span>
                                 </p>
                                 
+                                {% if alert.status == 'Pending' %}
                                 <form action="{{ url_for('update_alert', alert_id=alert.id) }}" method="POST" class="action-buttons">
-                                    <button type="submit" name="status" value="Confirmed Cheating" class="btn-primary" style="background: var(--danger); font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                    <button type="submit" name="status" value="Confirmed Cheating" class="btn-primary" style="background: var(--danger); font-size: 0.875rem; padding: 0.5rem 1rem;" onclick="return confirm('Are you sure you want to confirm cheating for this student?');">
                                         <i class="fas fa-check" style="margin-right: 4px;"></i> Confirm Cheating
                                     </button>
-                                    <button type="submit" name="status" value="False Alert" class="btn-primary" style="background: var(--bg-alt); color: var(--text-main); font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                    <button type="submit" name="status" value="False Alert" class="btn-primary" style="background: var(--bg-alt); color: var(--text-main); font-size: 0.875rem; padding: 0.5rem 1rem;" onclick="return confirm('Are you sure you want to mark this cheating detection as false?');">
                                         <i class="fas fa-times" style="margin-right: 4px;"></i> False Alert
                                     </button>
                                 </form>
+                                {% else %}
+                                <div class="action-buttons">
+                                    <button disabled class="btn-primary" style="background: var(--bg-alt); color: var(--text-muted); font-size: 0.875rem; padding: 0.5rem 1rem; cursor: not-allowed; opacity: 0.7;">
+                                        <i class="fas fa-lock" style="margin-right: 4px;"></i> Action Completed
+                                    </button>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     {% endfor %}

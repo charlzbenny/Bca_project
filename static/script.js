@@ -211,28 +211,21 @@ function initProctoring() {
                 }
             }
 
-            tabSwitchTimeout = setTimeout(() => {
-                visibilityChanges++;
-                showWarning(`Warning: You have left the exam tab. (${visibilityChanges}/3 allowed)`);
-                
-                if (visibilityChanges >= 3) {
-                    alert("Exam terminated due to multiple tab switches.");
-                    if (form) {
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'is_terminated';
-                        input.value = 'true';
-                        form.appendChild(input);
-                        form.submit();
-                    } else {
-                        window.location.href = '/student/dashboard';
-                    }
+            visibilityChanges++;
+            showWarning(`Warning: You have left the exam tab. (${visibilityChanges}/3 allowed)`);
+            
+            if (visibilityChanges >= 3) {
+                alert("Exam terminated due to multiple tab switches.");
+                if (form) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'is_terminated';
+                    input.value = 'true';
+                    form.appendChild(input);
+                    form.submit();
+                } else {
+                    window.location.href = '/student/dashboard';
                 }
-            }, 1000);
-        } else if (document.visibilityState === 'visible') {
-            if (tabSwitchTimeout) {
-                clearTimeout(tabSwitchTimeout);
-                tabSwitchTimeout = null;
             }
         }
     });
@@ -349,12 +342,12 @@ function initProctoring() {
                 }
             }
             
-            // Start physical frame capture loop (every 5 seconds)
+            // Start physical frame capture loop
             video.onloadedmetadata = () => {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 
-                setInterval(() => {
+                function captureAndCheckFrame() {
                     if (!isTabActive) return; // Pause face detection when tab is hidden
                     
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -374,7 +367,11 @@ function initProctoring() {
                         }
                     })
                     .catch(error => console.error('Error uploading frame:', error));
-                }, 5000); // Check visual every 5s
+                }
+                
+                // Execute immediately on load, then every 5 seconds
+                captureAndCheckFrame();
+                setInterval(captureAndCheckFrame, 5000);
             };
         })
         .catch(err => {
